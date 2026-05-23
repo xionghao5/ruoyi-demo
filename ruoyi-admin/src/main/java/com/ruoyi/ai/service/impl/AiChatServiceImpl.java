@@ -1,0 +1,99 @@
+package com.ruoyi.ai.service.impl;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.ai.service.AiChatService;
+
+/**
+ * AI智能问答服务实现类
+ * 
+ * @author ruoyi
+ */
+@Service
+public class AiChatServiceImpl implements AiChatService
+{
+    private static final Logger log = LoggerFactory.getLogger(AiChatServiceImpl.class);
+
+    @Value("${ai.api-key:}")
+    private String apiKey;
+
+    @Value("${ai.base-url:https://api.openai.com}")
+    private String baseUrl;
+
+    @Value("${ai.model:gpt-3.5-turbo}")
+    private String model;
+
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    @Override
+    public AjaxResult chat(String message)
+    {
+        if (apiKey == null || apiKey.trim().isEmpty())
+        {
+            return AjaxResult.error("AI服务未配置，请先配置API Key");
+        }
+
+        try
+        {
+            String url = baseUrl + "/v1/chat/completions";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(apiKey);
+
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", model);
+
+            List<Map<String, String>> messages = new ArrayList<>();
+            Map<String, String> userMessage = new HashMap<>();
+            userMessage.put("role", "user");
+            userMessage.put("content", message);
+            messages.add(userMessage);
+            requestBody.put("messages", messages);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+            ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null)
+            {
+                JSONObject jsonObject = JSON.parseObject(response.getBody());
+                JSONArray choices = jsonObject.getJSONArray("choices");
+                if (choices != null && !choices.isEmpty())
+                {
+                    JSONObject firstChoice = choices.getJSONObject(0);
+                    JSONObject messageObj = firstChoice.getJSONObject("message");
+                    String content = messageObj.getString("content");
+                    return AjaxResult.success(content);
+                }
+                return AjaxResult.error("AI返回数据格式异常");
+            }
+            else
+            {
+                return AjaxResult.error("AI服务请求失败，状态码：" + response.getStatusCodeValue());
+            }
+        }
+        catch (Exception e)
+        {
+            log.error("AI问答请求异常", e);
+            return AjaxResult.error("AI服务调用失败：" + e.getMessage());
+        }
+    }
+}
