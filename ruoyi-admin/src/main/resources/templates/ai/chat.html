@@ -210,26 +210,87 @@
             appendUserMessage(message);
             input.value = '';
 
-            // 显示打字指示器
-            showTyping(true);
+            // 添加AI消息气泡（初始为空，流式填充内容）
+            var aiMsgId = appendAiMessageEmpty();
 
-            // 发送请求
-            $.ajax({
-                type: "POST",
-                url: prefix + "/send",
-                data: { message: message },
-                success: function(result) {
-                    showTyping(false);
-                    if (result.code === 0) {
-                        appendAiMessage(result.data || result.msg);
-                    } else {
-                        appendAiMessage("抱歉，请求失败：" + (result.msg || "未知错误"));
-                    }
-                },
-                error: function() {
-                    showTyping(false);
-                    appendAiMessage("抱歉，网络请求异常，请稍后重试。");
+            // 禁用发送按钮
+            var sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+
+            // 使用fetch接收SSE流式响应
+            var params = new URLSearchParams();
+            params.append('message', message);
+
+            fetch(prefix + '/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString()
+            }).then(function(response) {
+                if (!response.ok) {
+                    throw new Error('HTTP error ' + response.status);
                 }
+                var reader = response.body.getReader();
+                var decoder = new TextDecoder('utf-8');
+                var buffer = '';
+                var fullContent = '';
+
+                function read() {
+                    reader.read().then(function(result) {
+                        if (result.done) {
+                            // 流结束，渲染最终内容
+                            finalizeAiMessage(aiMsgId, fullContent);
+                            sendBtn.disabled = false;
+                            return;
+                        }
+
+                        buffer += decoder.decode(result.value, { stream: true });
+                        // 按换行分割处理SSE数据
+                        var lines = buffer.split('\n');
+                        // 最后一段可能不完整，保留在buffer中
+                        buffer = lines.pop();
+
+                        for (var i = 0; i < lines.length; i++) {
+                            var line = lines[i].trim();
+                            if (line.startsWith('event:message')) {
+                                continue;
+                            }
+                            if (line.startsWith('data:')) {
+                                var data = line.substring(5);
+                                if (data === '[DONE]') {
+                                    // 流结束
+                                    finalizeAiMessage(aiMsgId, fullContent);
+                                    sendBtn.disabled = false;
+                                    return;
+                                }
+                                if (data) {
+                                    fullContent += data;
+                                    updateAiMessage(aiMsgId, fullContent);
+                                }
+                            } else if (line.startsWith('event:error')) {
+                                // 下一个data行是错误信息
+                            } else if (line.startsWith('data:') && lines[i-1] && lines[i-1].trim() === 'event:error') {
+                                // 错误数据
+                                fullContent = '抱歉，' + data;
+                                updateAiMessage(aiMsgId, fullContent);
+                            }
+                        }
+
+                        read();
+                    }).catch(function(error) {
+                        if (!fullContent) {
+                            fullContent = '抱歉，网络请求异常，请稍后重试。';
+                            updateAiMessage(aiMsgId, fullContent);
+                        }
+                        finalizeAiMessage(aiMsgId, fullContent);
+                        sendBtn.disabled = false;
+                    });
+                }
+
+                read();
+            }).catch(function(error) {
+                updateAiMessage(aiMsgId, '抱歉，网络请求异常，请稍后重试。');
+                finalizeAiMessage(aiMsgId, fullContent || '抱歉，网络请求异常，请稍后重试。');
+                sendBtn.disabled = false;
             });
         }
 
@@ -244,7 +305,56 @@
             scrollToBottom();
         }
 
-        // 添加AI消息
+        // 添加AI消息（空气泡，用于流式填充）
+        function appendAiMessageEmpty() {
+            var container = document.getElementById('chatContainer');
+            var msgId = 'ai-msg-' + Date.now();
+            var html = '<div class="chat-message ai" id="' + msgId + '">' +
+                '<div class="chat-avatar"><i class="fa fa-robot"></i></div>' +
+                '<div class="chat-bubble"><span class="ai-content"></span><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>' +
+                '</div>';
+            container.insertAdjacentHTML('beforeend', html);
+            scrollToBottom();
+            return msgId;
+        }
+
+        // 更新AI消息内容（流式追加）
+        function updateAiMessage(msgId, text) {
+            var msgEl = document.getElementById(msgId);
+            if (!msgEl) return;
+            var contentEl = msgEl.querySelector('.ai-content');
+            if (contentEl) {
+                // 实时显示纯文本，不做markdown渲染（避免频繁渲染闪烁）
+                contentEl.innerText = text;
+            }
+            scrollToBottom();
+        }
+
+        // 最终渲染AI消息（流结束后做markdown渲染）
+        function finalizeAiMessage(msgId, text) {
+            var msgEl = document.getElementById(msgId);
+            if (!msgEl) return;
+            var bubbleEl = msgEl.querySelector('.chat-bubble');
+            if (bubbleEl) {
+                var content = text;
+                if (typeof marked !== 'undefined') {
+                    content = marked.parse(text);
+                } else {
+                    content = escapeHtml(text).replace(/\n/g, '<br>');
+                }
+                bubbleEl.innerHTML = content;
+            }
+            scrollToBottom();
+            // 代码高亮
+            if (typeof hljs !== 'undefined') {
+                var container = document.getElementById('chatContainer');
+                container.querySelectorAll('pre code').forEach(function(block) {
+                    hljs.highlightBlock(block);
+                });
+            }
+        }
+
+        // 添加AI消息（完整内容，用于非流式场景）
         function appendAiMessage(text) {
             var container = document.getElementById('chatContainer');
             var content = text;

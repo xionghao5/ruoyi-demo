@@ -1,5 +1,7 @@
 package com.ruoyi.ai.service;
 
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
 import com.ruoyi.common.core.domain.AjaxResult;
 
 /**
@@ -10,10 +12,18 @@ import com.ruoyi.common.core.domain.AjaxResult;
 public interface AiChatService
 {
     /**
-     * 发送问题并获取AI回答
+     * 发送问题并获取AI回答（非流式）
      * 
      * @param message 用户问题
      * @return AI回答结果
      */
     AjaxResult chat(String message);
+
+    /**
+     * 流式发送问题并获取AI回答
+     * 
+     * @param message 用户问题
+     * @return SSE流式发射器
+     */
+    SseEmitter streamChat(String message);
 }
