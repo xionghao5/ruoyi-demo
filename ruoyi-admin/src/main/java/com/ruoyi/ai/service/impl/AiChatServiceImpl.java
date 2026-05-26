@@ -13,8 +13,10 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import com.ruoyi.common.core.domain.entity.SysUser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -29,6 +31,11 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.ai.service.AiChatService;
+import com.ruoyi.ai.service.IAiConversationService;
+import com.ruoyi.ai.service.IAiMessageService;
+import com.ruoyi.ai.domain.AiConversation;
+import com.ruoyi.ai.domain.AiMessage;
+import com.ruoyi.common.utils.ShiroUtils;
 
 /**
  * AI智能问答服务实现类
@@ -54,6 +61,12 @@ public class AiChatServiceImpl implements AiChatService
 
     @Value("${ai.model:gpt-3.5-turbo}")
     private String model;
+
+    @Autowired
+    private IAiConversationService conversationService;
+
+    @Autowired
+    private IAiMessageService messageService;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -113,9 +126,60 @@ public class AiChatServiceImpl implements AiChatService
     }
 
     @Override
-    public SseEmitter streamChat(String message)
+    public SseEmitter streamChat(String message, Long conversationId)
     {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
+
+        // 获取当前登录用户
+        SysUser currentUser = ShiroUtils.getSysUser();
+        String loginName = currentUser != null ? currentUser.getLoginName() : "";
+        Long userId = currentUser != null ? currentUser.getUserId() : 0L;
+
+        // 创建或获取对话
+        final Long convId;
+        if (conversationId == null)
+        {
+            // 新建对话，标题取问题前50字符
+            AiConversation conversation = new AiConversation();
+            conversation.setTitle(message.length() > 50 ? message.substring(0, 50) + "..." : message);
+            conversation.setUserId(userId);
+            conversation.setModel(model);
+            conversation.setMessageCount(0);
+            conversation.setStatus("0");
+            conversation.setCreateBy(loginName);
+            conversationService.insertConversation(conversation);
+            convId = conversation.getConversationId();
+            // 通过SSE发送对话ID给前端
+            try
+            {
+                emitter.send(SseEmitter.event().name("conversation").data(convId.toString()));
+            }
+            catch (Exception e)
+            {
+                log.error("发送对话ID异常", e);
+            }
+        }
+        else
+        {
+            convId = conversationId;
+        }
+
+        // 保存用户消息
+        AiMessage userMsg = new AiMessage();
+        userMsg.setConversationId(convId);
+        userMsg.setRole("user");
+        userMsg.setContent(message);
+        userMsg.setCreateBy(loginName);
+        messageService.insertMessage(userMsg);
+
+        // 更新对话消息计数
+        AiConversation conv = conversationService.selectConversationById(convId);
+        if (conv != null)
+        {
+            conv.setMessageCount(conv.getMessageCount() != null ? conv.getMessageCount() + 1 : 1);
+            conv.setUpdateBy(loginName);
+            conversationService.updateConversation(conv);
+        }
 
         executorService.execute(() -> {
             HttpURLConnection connection = null;
@@ -174,6 +238,7 @@ public class AiChatServiceImpl implements AiChatService
                 // 读取SSE流式响应
                 reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8));
                 String line;
+                StringBuilder fullContent = new StringBuilder();
                 while ((line = reader.readLine()) != null)
                 {
                     if (line.startsWith("data: "))
@@ -196,6 +261,7 @@ public class AiChatServiceImpl implements AiChatService
                                     String content = delta.getString("content");
                                     if (content != null)
                                     {
+                                        fullContent.append(content);
                                         emitter.send(SseEmitter.event().name("message").data(content));
                                     }
                                 }
@@ -207,6 +273,27 @@ public class AiChatServiceImpl implements AiChatService
                         }
                     }
                 }
+
+                // 流式结束后保存AI回复消息
+                if (fullContent.length() > 0)
+                {
+                    AiMessage assistantMsg = new AiMessage();
+                    assistantMsg.setConversationId(convId);
+                    assistantMsg.setRole("assistant");
+                    assistantMsg.setContent(fullContent.toString());
+                    assistantMsg.setCreateBy(loginName);
+                    messageService.insertMessage(assistantMsg);
+
+                    // 更新对话消息计数
+                    AiConversation updateConv = conversationService.selectConversationById(convId);
+                    if (updateConv != null)
+                    {
+                        updateConv.setMessageCount(updateConv.getMessageCount() != null ? updateConv.getMessageCount() + 1 : 1);
+                        updateConv.setUpdateBy(loginName);
+                        conversationService.updateConversation(updateConv);
+                    }
+                }
+
                 emitter.complete();
             }
             catch (Exception e)

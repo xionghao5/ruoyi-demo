@@ -1,5 +1,8 @@
 package com.ruoyi.ai.controller;
 
+import java.util.List;
+
+import com.ruoyi.common.core.domain.entity.SysUser;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -12,7 +15,14 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.ruoyi.common.core.controller.BaseController;
+import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.core.page.TableDataInfo;
+import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.ai.domain.AiConversation;
+import com.ruoyi.ai.domain.AiMessage;
 import com.ruoyi.ai.service.AiChatService;
+import com.ruoyi.ai.service.IAiConversationService;
+import com.ruoyi.ai.service.IAiMessageService;
 
 /**
  * AI智能问答控制器
@@ -28,6 +38,12 @@ public class AiChatController extends BaseController
     @Autowired
     private AiChatService aiChatService;
 
+    @Autowired
+    private IAiConversationService conversationService;
+
+    @Autowired
+    private IAiMessageService messageService;
+
     @RequiresPermissions("ai:chat:view")
     @GetMapping()
     public String chat()
@@ -41,7 +57,8 @@ public class AiChatController extends BaseController
     @RequiresPermissions("ai:chat:view")
     @PostMapping(value = "/send", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @ResponseBody
-    public SseEmitter send(@RequestParam("message") String message)
+    public SseEmitter send(@RequestParam("message") String message,
+                           @RequestParam(value = "conversationId", required = false) Long conversationId)
     {
         if (message == null || message.trim().isEmpty())
         {
@@ -57,6 +74,44 @@ public class AiChatController extends BaseController
             }
             return emitter;
         }
-        return aiChatService.streamChat(message.trim());
+        return aiChatService.streamChat(message.trim(), conversationId);
+    }
+
+    /**
+     * 查询当前用户的对话列表
+     */
+    @RequiresPermissions("ai:chat:view")
+    @GetMapping("/list")
+    @ResponseBody
+    public TableDataInfo list(AiConversation conversation)
+    {
+        startPage();
+        SysUser currentUser = ShiroUtils.getSysUser();
+        conversation.setUserId(currentUser.getUserId());
+        List<AiConversation> list = conversationService.selectConversationList(conversation);
+        return getDataTable(list);
+    }
+
+    /**
+     * 查询对话的消息历史
+     */
+    @RequiresPermissions("ai:chat:view")
+    @GetMapping("/messages")
+    @ResponseBody
+    public AjaxResult messages(@RequestParam("conversationId") Long conversationId)
+    {
+        List<AiMessage> messages = messageService.selectMessageByConversationId(conversationId);
+        return AjaxResult.success(messages);
+    }
+
+    /**
+     * 删除对话
+     */
+    @RequiresPermissions("ai:chat:view")
+    @PostMapping("/delete")
+    @ResponseBody
+    public AjaxResult delete(@RequestParam("conversationId") Long conversationId)
+    {
+        return toAjax(conversationService.deleteConversationById(conversationId));
     }
 }

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.ai.mapper.AiConversationMapper">
+    
+    <resultMap type="AiConversation" id="AiConversationResult">
+        <result property="conversationId"  column="conversation_id"  />
+        <result property="title"           column="title"            />
+        <result property="userId"          column="user_id"          />
+        <result property="model"           column="model"            />
+        <result property="messageCount"    column="message_count"    />
+        <result property="status"          column="status"           />
+        <result property="delFlag"         column="del_flag"         />
+        <result property="createBy"        column="create_by"        />
+        <result property="createTime"      column="create_time"      />
+        <result property="updateBy"        column="update_by"        />
+        <result property="updateTime"      column="update_time"      />
+        <result property="remark"          column="remark"           />
+    </resultMap>
+    
+    <sql id="selectConversationVo">
+        select conversation_id, title, user_id, model, message_count, status, del_flag, create_by, create_time, update_by, update_time, remark 
+        from ai_conversation
+    </sql>
+    
+    <select id="selectConversationById" parameterType="Long" resultMap="AiConversationResult">
+        <include refid="selectConversationVo"/>
+        where conversation_id = #{conversationId} and del_flag = '0'
+    </select>
+    
+    <select id="selectConversationList" parameterType="AiConversation" resultMap="AiConversationResult">
+        <include refid="selectConversationVo"/>
+        <where>
+            del_flag = '0'
+            <if test="title != null and title != ''">
+                AND title like concat('%', #{title}, '%')
+            </if>
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+            <if test="model != null and model != ''">
+                AND model = #{model}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+        order by create_time desc
+    </select>
+    
+    <insert id="insertConversation" parameterType="AiConversation" useGeneratedKeys="true" keyProperty="conversationId">
+        insert into ai_conversation (
+            <if test="title != null and title != ''">title,</if>
+            <if test="userId != null">user_id,</if>
+            <if test="model != null and model != ''">model,</if>
+            <if test="messageCount != null">message_count,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time
+        )values(
+            <if test="title != null and title != ''">#{title},</if>
+            <if test="userId != null">#{userId},</if>
+            <if test="model != null and model != ''">#{model},</if>
+            <if test="messageCount != null">#{messageCount},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate()
+        )
+    </insert>
+    
+    <update id="updateConversation" parameterType="AiConversation">
+        update ai_conversation 
+        <set>
+            <if test="title != null and title != ''">title = #{title},</if>
+            <if test="model != null and model != ''">model = #{model},</if>
+            <if test="messageCount != null">message_count = #{messageCount},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where conversation_id = #{conversationId}
+    </update>
+    
+    <update id="deleteConversationById" parameterType="Long">
+        update ai_conversation set del_flag = '2' where conversation_id = #{conversationId}
+    </update>
+    
+    <update id="deleteConversationByIds" parameterType="String">
+        update ai_conversation set del_flag = '2' where conversation_id in 
+        <foreach item="conversationId" collection="array" open="(" separator="," close=")">
+            #{conversationId}
+        </foreach>
+    </update>
+    
+</mapper>

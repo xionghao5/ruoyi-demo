@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.ai.mapper.AiMessageMapper">
+    
+    <resultMap type="AiMessage" id="AiMessageResult">
+        <result property="messageId"        column="message_id"       />
+        <result property="conversationId"   column="conversation_id"  />
+        <result property="role"             column="role"             />
+        <result property="content"          column="content"          />
+        <result property="tokens"           column="tokens"           />
+        <result property="createBy"         column="create_by"        />
+        <result property="createTime"       column="create_time"      />
+    </resultMap>
+    
+    <sql id="selectMessageVo">
+        select message_id, conversation_id, role, cast(content as char) as content, tokens, create_by, create_time 
+        from ai_message
+    </sql>
+    
+    <select id="selectMessageById" parameterType="Long" resultMap="AiMessageResult">
+        <include refid="selectMessageVo"/>
+        where message_id = #{messageId}
+    </select>
+    
+    <select id="selectMessageByConversationId" parameterType="Long" resultMap="AiMessageResult">
+        <include refid="selectMessageVo"/>
+        where conversation_id = #{conversationId}
+        order by create_time asc
+    </select>
+    
+    <insert id="insertMessage" parameterType="AiMessage" useGeneratedKeys="true" keyProperty="messageId">
+        insert into ai_message (
+            <if test="conversationId != null">conversation_id,</if>
+            <if test="role != null and role != ''">role,</if>
+            <if test="content != null and content != ''">content,</if>
+            <if test="tokens != null">tokens,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time
+        )values(
+            <if test="conversationId != null">#{conversationId},</if>
+            <if test="role != null and role != ''">#{role},</if>
+            <if test="content != null and content != ''">#{content},</if>
+            <if test="tokens != null">#{tokens},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate()
+        )
+    </insert>
+    
+    <delete id="deleteMessageByConversationId" parameterType="Long">
+        delete from ai_message where conversation_id = #{conversationId}
+    </delete>
+    
+    <delete id="deleteMessageByIds" parameterType="String">
+        delete from ai_message where message_id in 
+        <foreach item="messageId" collection="array" open="(" separator="," close=")">
+            #{messageId}
+        </foreach>
+    </delete>
+    
+</mapper>

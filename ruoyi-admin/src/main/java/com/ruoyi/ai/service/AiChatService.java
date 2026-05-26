@@ -23,7 +23,8 @@ public interface AiChatService
      * 流式发送问题并获取AI回答
      * 
      * @param message 用户问题
+     * @param conversationId 对话ID（为null时新建对话）
      * @return SSE流式发射器
      */
-    SseEmitter streamChat(String message);
+    SseEmitter streamChat(String message, Long conversationId);
 }
