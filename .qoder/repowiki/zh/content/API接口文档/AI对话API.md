@@ -5,6 +5,14 @@
 - [AiChatController.java](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java)
 - [AiChatService.java](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/AiChatService.java)
 - [AiChatServiceImpl.java](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/impl/AiChatServiceImpl.java)
+- [IAiConversationService.java](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/IAiConversationService.java)
+- [IAiMessageService.java](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/IAiMessageService.java)
+- [AiConversation.java](file://ruoyi-admin/src/main/java/com/ruoyi/ai/domain/AiConversation.java)
+- [AiMessage.java](file://ruoyi-admin/src/main/java/com/ruoyi/ai/domain/AiMessage.java)
+- [AiConversationMapper.java](file://ruoyi-admin/src/main/java/com/ruoyi/ai/mapper/AiConversationMapper.java)
+- [AiMessageMapper.java](file://ruoyi-admin/src/main/java/com/ruoyi/ai/mapper/AiMessageMapper.java)
+- [AiConversationServiceImpl.java](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/impl/AiConversationServiceImpl.java)
+- [AiMessageServiceImpl.java](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/impl/AiMessageServiceImpl.java)
 - [chat.html](file://ruoyi-admin/src/main/resources/templates/ai/chat.html)
 - [application.yml](file://ruoyi-admin/src/main/resources/application.yml)
 - [AjaxResult.java](file://ruoyi-common/src/main/java/com/ruoyi/common/core/domain/AjaxResult.java)
@@ -21,20 +29,22 @@
 7. [请求参数说明](#请求参数说明)
 8. [响应格式规范](#响应格式规范)
 9. [会话管理](#会话管理)
-10. [前端集成指南](#前端集成指南)
-11. [性能考虑](#性能考虑)
-12. [故障排除](#故障排除)
-13. [结论](#结论)
+10. [历史记录查询](#历史记录查询)
+11. [前端集成指南](#前端集成指南)
+12. [性能考虑](#性能考虑)
+13. [故障排除](#故障排除)
+14. [结论](#结论)
 
 ## 简介
 
-AI对话API是一个基于Server-Sent Events（SSE）技术的实时对话接口，提供了与AI助手进行流式交互的能力。该系统采用Spring Boot框架构建，集成了RuoYi企业级开发框架，支持实时消息流式传输、权限控制、错误处理和会话管理等功能。
+AI对话API是一个基于Server-Sent Events（SSE）技术的实时对话接口，提供了与AI助手进行流式交互的能力。该系统采用Spring Boot框架构建，集成了RuoYi企业级开发框架，支持实时消息流式传输、权限控制、错误处理、会话管理和历史记录查询等功能。
 
 系统主要特点：
 - **实时流式响应**：基于SSE协议实现实时消息推送
 - **多模型支持**：支持OpenAI兼容的各种AI模型
 - **权限控制**：集成Shiro权限管理系统
 - **错误处理**：完善的异常捕获和错误反馈机制
+- **会话持久化**：完整的对话历史记录管理
 - **前端集成**：提供完整的前端聊天界面
 
 ## 项目结构
@@ -47,50 +57,84 @@ subgraph "AI对话模块"
 A[AiChatController<br/>控制器层]
 B[AiChatService<br/>服务接口]
 C[AiChatServiceImpl<br/>服务实现]
-D[chat.html<br/>前端页面]
+D[IAiConversationService<br/>对话服务接口]
+E[IAiMessageService<br/>消息服务接口]
+F[AiConversation<br/>对话实体]
+G[AiMessage<br/>消息实体]
+H[chat.html<br/>前端页面]
+end
+subgraph "数据访问层"
+I[AiConversationMapper<br/>对话映射器]
+J[AiMessageMapper<br/>消息映射器]
+K[AiConversationServiceImpl<br/>对话服务实现]
+L[AiMessageServiceImpl<br/>消息服务实现]
 end
 subgraph "配置层"
-E[application.yml<br/>应用配置]
-F[AjaxResult<br/>统一响应]
+M[application.yml<br/>应用配置]
+N[AjaxResult<br/>统一响应]
 end
 subgraph "权限控制"
-G[PermissionsAspect<br/>权限切面]
+O[PermissionsAspect<br/>权限切面]
+P[Shiro权限注解]
 end
 A --> B
+A --> D
+A --> E
 B --> C
-C --> E
-A --> F
-A --> G
-D --> A
+D --> K
+E --> L
+K --> I
+L --> J
+C --> M
+A --> N
+A --> O
+P --> A
+H --> A
 ```
 
 **图表来源**
-- [AiChatController.java:1-63](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java#L1-L63)
-- [AiChatService.java:1-30](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/AiChatService.java#L1-L30)
-- [AiChatServiceImpl.java:1-245](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/impl/AiChatServiceImpl.java#L1-L245)
+- [AiChatController.java:32-52](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java#L32-L52)
+- [AiChatService.java:12-30](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/AiChatService.java#L12-L30)
+- [IAiConversationService.java:11-60](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/IAiConversationService.java#L11-L60)
+- [IAiMessageService.java](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/IAiMessageService.java)
 
 **章节来源**
-- [AiChatController.java:1-63](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java#L1-L63)
+- [AiChatController.java:32-52](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java#L32-L52)
 - [application.yml:141-149](file://ruoyi-admin/src/main/resources/application.yml#L141-L149)
 
 ## 核心组件
 
 ### 控制器层
 
-AiChatController负责处理AI对话相关的HTTP请求，提供RESTful API接口。
+AiChatController负责处理AI对话相关的HTTP请求，提供RESTful API接口，包含以下功能：
+- **页面访问接口**：返回AI聊天页面模板
+- **流式对话接口**：处理用户消息发送请求，返回SSE流式响应
+- **对话列表查询**：查询当前用户的对话历史列表
+- **消息历史查询**：根据对话ID查询消息历史
+- **对话删除**：删除指定的对话记录
 
 ### 服务层
 
-AiChatService定义了AI对话的核心业务接口，包括同步和异步两种调用模式。
+AI对话模块包含完整的三层服务架构：
 
-### 配置层
+#### 服务接口层
+- **AiChatService**：AI对话核心业务接口，定义同步和异步对话方法
+- **IAiConversationService**：对话管理服务接口，提供对话的CRUD操作
+- **IAiMessageService**：消息管理服务接口，提供消息的查询和管理功能
 
-系统通过application.yml配置AI服务的基本参数，包括API Key、基础URL和模型名称。
+#### 服务实现层
+- **AiChatServiceImpl**：AI对话服务实现，处理与外部AI服务的通信
+- **AiConversationServiceImpl**：对话服务实现，管理对话的生命周期
+- **AiMessageServiceImpl**：消息服务实现，处理消息的存储和查询
+
+#### 数据访问层
+- **AiConversationMapper**：对话数据访问接口，定义SQL映射
+- **AiMessageMapper**：消息数据访问接口，定义SQL映射
 
 **章节来源**
-- [AiChatController.java:22-36](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java#L22-L36)
-- [AiChatService.java:12-29](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/AiChatService.java#L12-L29)
-- [application.yml:141-149](file://ruoyi-admin/src/main/resources/application.yml#L141-L149)
+- [AiChatController.java:54-116](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java#L54-L116)
+- [AiChatService.java:12-30](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/AiChatService.java#L12-L30)
+- [IAiConversationService.java:11-60](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/IAiConversationService.java#L11-L60)
 
 ## 架构概览
 
@@ -100,24 +144,45 @@ AI对话系统的整体架构采用分层设计，确保了良好的可维护性
 sequenceDiagram
 participant Client as 客户端
 participant Controller as AiChatController
-participant Service as AiChatServiceImpl
+participant ChatService as AiChatServiceImpl
+participant ConversationService as AiConversationServiceImpl
+participant MessageService as AiMessageServiceImpl
+participant DB as 数据库
 participant AI as AI服务
 participant SSE as SSE发射器
+Client->>Controller : GET /ai/chat (页面)
+Controller-->>Client : 返回聊天页面
 Client->>Controller : POST /ai/chat/send
 Controller->>Controller : 参数校验
-Controller->>Service : streamChat(message)
-Service->>SSE : 创建SseEmitter
-Service->>AI : 发送流式请求
-AI-->>Service : 流式响应数据
-Service->>SSE : 发送message事件
+Controller->>ChatService : streamChat(message, conversationId)
+ChatService->>ConversationService : 获取或创建对话
+ConversationService->>DB : 查询/插入对话记录
+DB-->>ConversationService : 对话信息
+ConversationService-->>ChatService : 对话上下文
+ChatService->>SSE : 创建SseEmitter
+ChatService->>AI : 发送流式请求
+AI-->>ChatService : 流式响应数据
+ChatService->>MessageService : 保存用户消息
+MessageService->>DB : 插入消息记录
+DB-->>MessageService : 保存结果
+ChatService->>SSE : 发送message事件
 SSE-->>Client : 实时推送消息片段
-AI-->>Service : 完成信号
-Service->>SSE : 发送[DONE]事件
+AI-->>ChatService : AI回复内容
+ChatService->>MessageService : 保存AI消息
+MessageService->>DB : 插入消息记录
+DB-->>MessageService : 保存结果
+ChatService->>SSE : 发送message事件
+SSE-->>Client : 实时推送AI回复
+AI-->>ChatService : 完成信号
+ChatService->>ConversationService : 更新对话状态
+ConversationService->>DB : 更新对话记录
+DB-->>ConversationService : 更新结果
+ChatService->>SSE : 发送[DONE]事件
 SSE-->>Client : 连接关闭
 ```
 
 **图表来源**
-- [AiChatController.java:42-61](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java#L42-L61)
+- [AiChatController.java:58-78](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java#L58-L78)
 - [AiChatServiceImpl.java:116-243](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/impl/AiChatServiceImpl.java#L116-L243)
 
 ## 详细组件分析
@@ -134,15 +199,27 @@ SSE-->>Client : 连接关闭
 
 2. **流式对话接口** (`POST /ai/chat/send`)
    - 处理用户消息发送请求
+   - 支持指定对话ID进行多轮对话
    - 返回SSE流式响应
+
+3. **对话列表查询** (`GET /ai/chat/list`)
+   - 查询当前用户的对话历史列表
+   - 支持分页查询
+
+4. **消息历史查询** (`GET /ai/chat/messages`)
+   - 根据对话ID查询消息历史
+   - 返回指定对话的所有消息记录
+
+5. **对话删除** (`POST /ai/chat/delete`)
+   - 删除指定的对话记录
+   - 支持单个和批量删除
 
 #### 权限控制
 
 控制器使用`@RequiresPermissions("ai:chat:view")`注解确保只有具备相应权限的用户才能访问AI对话功能。
 
 **章节来源**
-- [AiChatController.java:31-36](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java#L31-L36)
-- [AiChatController.java:42-61](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java#L42-L61)
+- [AiChatController.java:47-116](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java#L47-L116)
 
 ### AiChatService 接口分析
 
@@ -157,13 +234,14 @@ AjaxResult chat(String message)
 
 #### 流式对话方法
 ```java
-SseEmitter streamChat(String message)
+SseEmitter streamChat(String message, Long conversationId)
 ```
 - 适用于需要实时流式响应的场景
+- 支持指定对话ID进行多轮对话
 - 返回SSE发射器对象
 
 **章节来源**
-- [AiChatService.java:14-29](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/AiChatService.java#L14-L29)
+- [AiChatService.java:14-30](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/AiChatService.java#L14-L30)
 
 ### AiChatServiceImpl 实现分析
 
@@ -181,19 +259,23 @@ SseEmitter streamChat(String message)
 
 ```mermaid
 flowchart TD
-Start([开始流式处理]) --> CreateEmitter["创建SseEmitter<br/>超时时间: 5分钟"]
-CreateEmitter --> InitThread["初始化异步线程"]
-InitThread --> SendRequest["发送AI请求<br/>设置stream=true"]
-SendRequest --> CheckResponse{"响应状态"}
+Start([开始流式处理]) --> ValidateParams["验证参数<br/>message不能为空"]
+ValidateParams --> CreateEmitter["创建SseEmitter<br/>超时时间: 5分钟"]
+CreateEmitter --> GetOrCreateConversation["获取或创建对话<br/>根据conversationId"]
+GetOrCreateConversation --> SaveUserMessage["保存用户消息到数据库"]
+SaveUserMessage --> SendAIRequest["发送AI请求<br/>设置stream=true"]
+SendAIRequest --> CheckResponse{"响应状态"}
 CheckResponse --> |错误| SendError["发送错误事件"]
 CheckResponse --> |成功| ReadStream["读取SSE流"]
 SendError --> CloseConnection["关闭连接"]
 ReadStream --> ParseData["解析JSON数据"]
 ParseData --> ExtractContent["提取content字段"]
-ExtractContent --> SendEvent["发送message事件"]
+ExtractContent --> SaveAIMessage["保存AI消息到数据库"]
+SaveAIMessage --> SendEvent["发送message事件"]
 SendEvent --> CheckDone{"是否[DONE]"}
 CheckDone --> |否| ReadStream
-CheckDone --> |是| SendDone["发送[DONE]事件"]
+CheckDone --> |是| UpdateConversation["更新对话状态"]
+UpdateConversation --> SendDone["发送[DONE]事件"]
 SendDone --> CloseConnection
 CloseConnection --> End([结束])
 ```
@@ -204,6 +286,18 @@ CloseConnection --> End([结束])
 **章节来源**
 - [AiChatServiceImpl.java:43-58](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/impl/AiChatServiceImpl.java#L43-L58)
 - [AiChatServiceImpl.java:116-243](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/impl/AiChatServiceImpl.java#L116-L243)
+
+### 实体类分析
+
+#### AiConversation 实体
+对话表实体，包含对话的基本信息和状态管理。
+
+#### AiMessage 实体
+消息表实体，包含消息内容、角色标识和时间戳等信息。
+
+**章节来源**
+- [AiConversation.java:12-124](file://ruoyi-admin/src/main/java/com/ruoyi/ai/domain/AiConversation.java#L12-L124)
+- [AiMessage.java:13-121](file://ruoyi-admin/src/main/java/com/ruoyi/ai/domain/AiMessage.java#L13-L121)
 
 ## SSE协议详解
 
@@ -258,9 +352,11 @@ stateDiagram-v2
 
 ### 基础接口参数
 
+#### 流式对话接口
 | 参数名 | 必填 | 类型 | 默认值 | 说明 |
 |--------|------|------|--------|------|
 | message | 是 | String | 无 | 用户发送的对话内容 |
+| conversationId | 否 | Long | null | 对话ID，用于多轮对话 |
 | Content-Type | 是 | String | application/x-www-form-urlencoded | 表单提交格式 |
 
 ### 请求头参数
@@ -270,12 +366,19 @@ stateDiagram-v2
 | Content-Type | 是 | application/x-www-form-urlencoded | 表单数据格式 |
 | Accept | 否 | text/event-stream | SSE流式响应 |
 
+### 对话列表查询参数
+
+| 参数名 | 必填 | 类型 | 默认值 | 说明 |
+|--------|------|------|--------|------|
+| 对话查询条件 | 否 | AiConversation | 无 | 支持对话标题、状态等查询条件 |
+
 ### 完整请求示例
 
 ```javascript
-// JavaScript示例
+// JavaScript示例 - 流式对话
 const params = new URLSearchParams();
 params.append('message', '你好，AI助手');
+params.append('conversationId', 123);
 
 fetch('/ai/chat/send', {
     method: 'POST',
@@ -292,7 +395,7 @@ fetch('/ai/chat/send', {
 ```
 
 **章节来源**
-- [AiChatController.java:44](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java#L44)
+- [AiChatController.java:60-78](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java#L60-L78)
 - [chat.html:224-228](file://ruoyi-admin/src/main/resources/templates/ai/chat.html#L224-L228)
 
 ## 响应格式规范
@@ -335,43 +438,108 @@ data: "AI服务请求失败：错误详情"
 
 ## 会话管理
 
-### 当前实现状态
+### 完整的会话管理架构
 
-基于代码分析，当前的AI对话实现采用**无状态会话管理**：
-
-- **单次对话**：每次请求都是独立的对话，不保留上下文
-- **即时响应**：AI服务直接处理当前消息
-- **简单模型**：使用简单的消息数组结构
-
-### 会话上下文结构
+基于新的AI聊天模块，系统实现了完整的会话管理功能：
 
 ```mermaid
 erDiagram
-MESSAGE {
-string role
-string content
-timestamp created_time
+AI_CONVERSATION {
+bigint conversation_id PK
+varchar title
+bigint user_id
+varchar model
+int message_count
+varchar status
+varchar del_flag
+datetime create_time
+datetime update_time
 }
-CONVERSATION {
-uuid id PK
-string user_id
-timestamp created_time
-timestamp updated_time
+AI_MESSAGE {
+bigint message_id PK
+bigint conversation_id FK
+varchar role
+longtext content
+int tokens
+datetime create_time
 }
-CONVERSATION ||--o{ MESSAGE : contains
+AI_CONVERSATION ||--o{ AI_MESSAGE : contains
 ```
 
-### 扩展建议
+**图表来源**
+- [AiConversation.java:16-35](file://ruoyi-admin/src/main/java/com/ruoyi/ai/domain/AiConversation.java#L16-L35)
+- [AiMessage.java:17-37](file://ruoyi-admin/src/main/java/com/ruoyi/ai/domain/AiMessage.java#L17-L37)
 
-如果需要实现有状态的会话管理，可以考虑以下改进：
+### 会话生命周期管理
 
-1. **会话存储**：引入Redis或数据库存储会话上下文
-2. **上下文管理**：维护消息历史和角色信息
-3. **会话持久化**：支持会话的保存和恢复
-4. **并发控制**：处理多用户并发会话
+#### 会话状态流转
+
+```mermaid
+stateDiagram-v2
+[*] --> 进行中
+进行中 --> 已结束 : 对话完成
+进行中 --> [*] : 用户取消
+已结束 --> [*] : 对话结束
+```
+
+#### 会话上下文管理
+
+1. **对话创建**：首次发送消息时自动创建对话
+2. **对话更新**：每次消息交互时更新对话状态
+3. **对话查询**：支持按用户、状态、时间等条件查询
+4. **对话删除**：支持软删除和硬删除
+
+### 会话持久化策略
+
+- **自动持久化**：每次消息交互自动保存到数据库
+- **事务保证**：使用数据库事务确保数据一致性
+- **索引优化**：为常用查询字段建立数据库索引
+- **分页查询**：支持大量历史记录的高效查询
 
 **章节来源**
-- [AiChatServiceImpl.java:76-84](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/impl/AiChatServiceImpl.java#L76-L84)
+- [AiConversation.java:12-124](file://ruoyi-admin/src/main/java/com/ruoyi/ai/domain/AiConversation.java#L12-L124)
+- [AiMessage.java:13-121](file://ruoyi-admin/src/main/java/com/ruoyi/ai/domain/AiMessage.java#L13-L121)
+
+## 历史记录查询
+
+### 对话列表查询
+
+系统提供了完整的对话历史查询功能：
+
+#### 查询接口
+```java
+@GetMapping("/list")
+@ResponseBody
+public TableDataInfo list(AiConversation conversation)
+```
+
+#### 查询条件
+- **用户ID**：自动绑定当前登录用户
+- **对话标题**：支持模糊查询
+- **对话状态**：支持按状态过滤
+- **创建时间**：支持时间段查询
+
+#### 分页支持
+- **默认分页**：使用RuoYi框架的分页机制
+- **排序规则**：按创建时间降序排列
+- **数据封装**：返回TableDataInfo格式
+
+### 消息历史查询
+
+#### 查询接口
+```java
+@GetMapping("/messages")
+@ResponseBody
+public AjaxResult messages(@RequestParam("conversationId") Long conversationId)
+```
+
+#### 查询特点
+- **精确查询**：根据对话ID查询所有消息
+- **顺序排列**：按时间顺序返回消息列表
+- **完整内容**：返回消息的完整内容和元数据
+
+**章节来源**
+- [AiChatController.java:83-105](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java#L83-L105)
 
 ## 前端集成指南
 
@@ -385,6 +553,7 @@ AI对话功能提供了一个完整的前端页面，位于`/ai/chat`路径。
 2. **流式内容更新**：实时显示AI回复内容
 3. **打字动画**：显示AI正在思考的状态
 4. **键盘快捷键**：支持Enter发送，Shift+Enter换行
+5. **对话历史**：显示和管理对话历史记录
 
 ### JavaScript集成示例
 
@@ -394,6 +563,8 @@ AI对话功能提供了一个完整的前端页面，位于`/ai/chat`路径。
 // 发送消息函数
 function sendMessage() {
     const message = document.getElementById('messageInput').value.trim();
+    const conversationId = getCurrentConversationId(); // 获取当前对话ID
+    
     if (!message) {
         layer.msg("请输入问题内容", { icon: 5 });
         return;
@@ -409,6 +580,9 @@ function sendMessage() {
     // 发送SSE请求
     const params = new URLSearchParams();
     params.append('message', message);
+    if (conversationId) {
+        params.append('conversationId', conversationId);
+    }
 
     fetch('/ai/chat/send', {
         method: 'POST',
@@ -470,6 +644,28 @@ function handleSSEStream(reader, aiMsgId) {
 }
 ```
 
+### 对话历史管理
+
+#### 历史记录展示
+
+```javascript
+// 加载对话历史
+function loadConversationHistory() {
+    fetch('/ai/chat/list')
+    .then(response => response.json())
+    .then(data => {
+        const historyList = data.rows;
+        renderConversationList(historyList);
+    });
+}
+
+// 切换对话
+function switchConversation(conversationId) {
+    setCurrentConversationId(conversationId);
+    loadMessages(conversationId);
+}
+```
+
 ### 最佳实践建议
 
 #### 错误处理策略
@@ -520,6 +716,13 @@ function handleSSEStream(reader, aiMsgId) {
 3. **批量处理**：合并多个小的消息片段
 4. **缓存策略**：缓存常见的AI回复内容
 
+### 数据库性能优化
+
+1. **索引优化**：为常用查询字段建立索引
+2. **分页查询**：使用LIMIT和OFFSET优化大数据集查询
+3. **事务管理**：合理使用事务减少数据库锁竞争
+4. **连接池**：配置合适的数据库连接池大小
+
 **章节来源**
 - [AiChatServiceImpl.java:43-47](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/impl/AiChatServiceImpl.java#L43-L47)
 - [AiChatServiceImpl.java:238-240](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/impl/AiChatServiceImpl.java#L238-L240)
@@ -552,6 +755,15 @@ function handleSSEStream(reader, aiMsgId) {
 2. 优化网络环境
 3. 实现自动重连机制
 
+#### 数据持久化问题
+
+**问题**：对话或消息无法保存
+**原因**：数据库连接异常或事务失败
+**解决**：
+1. 检查数据库连接配置
+2. 查看数据库日志
+3. 验证表结构和权限
+
 ### 错误日志分析
 
 系统提供了完善的错误日志记录：
@@ -571,11 +783,11 @@ SendSuccess --> End
 ```
 
 **图表来源**
-- [AiChatController.java:46-59](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java#L46-L59)
+- [AiChatController.java:63-76](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java#L63-L76)
 - [AiChatServiceImpl.java:212-224](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/impl/AiChatServiceImpl.java#L212-L224)
 
 **章节来源**
-- [AiChatController.java:46-59](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java#L46-L59)
+- [AiChatController.java:63-76](file://ruoyi-admin/src/main/java/com/ruoyi/ai/controller/AiChatController.java#L63-L76)
 - [AiChatServiceImpl.java:212-224](file://ruoyi-admin/src/main/java/com/ruoyi/ai/service/impl/AiChatServiceImpl.java#L212-L224)
 
 ## 结论
@@ -588,6 +800,8 @@ AI对话API基于RuoYi框架实现了完整的实时对话功能，具有以下�
 2. **协议先进**：使用SSE实现高效的实时通信
 3. **扩展性强**：支持多种AI服务提供商
 4. **用户体验好**：提供流畅的对话体验
+5. **数据持久化**：完整的对话历史管理
+6. **权限安全**：集成完整的权限控制系统
 
 ### 功能完整性
 
@@ -595,12 +809,15 @@ AI对话API基于RuoYi框架实现了完整的实时对话功能，具有以下�
 - 完善的错误处理机制
 - 丰富的前端交互功能
 - 灵活的配置选项
+- 完整的会话管理
+- 历史记录查询功能
 
-### 改进建议
+### 改进方向
 
-1. **会话持久化**：实现长期的对话历史管理
-2. **多轮对话**：支持复杂的上下文对话
-3. **模型选择**：提供更多AI模型的选择
-4. **安全增强**：加强API的安全防护
+1. **会话优化**：实现更智能的对话上下文管理
+2. **多模态支持**：支持图片、音频等多模态输入
+3. **模型管理**：提供AI模型的动态切换功能
+4. **安全增强**：加强API的安全防护和审计
+5. **性能优化**：进一步提升系统的响应速度
 
 该系统为开发者提供了一个可靠的AI对话基础框架，可以根据具体需求进行定制和扩展。
