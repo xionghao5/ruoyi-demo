@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <th:block th:include="include :: header('AI知识库管理')" />
+    <style>
+        /* ========== 整体布局 ========== */
+        .knowledge-layout {
+            display: flex;
+            height: calc(100vh - 120px);
+            border: 1px solid #e7eaec;
+            border-radius: 4px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        /* ========== 左侧知识库列表 ========== */
+        .knowledge-sidebar {
+            width: 300px;
+            min-width: 300px;
+            border-right: 1px solid #e7eaec;
+            display: flex;
+            flex-direction: column;
+            background-color: #fafafa;
+        }
+        .knowledge-sidebar-header {
+            padding: 15px;
+            border-bottom: 1px solid #e7eaec;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .knowledge-sidebar-header h5 {
+            margin: 0;
+            font-size: 14px;
+            color: #333;
+        }
+        .knowledge-sidebar-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+        .knowledge-sidebar-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            position: relative;
+            transition: background-color 0.15s;
+        }
+        .knowledge-sidebar-item:hover {
+            background-color: #f0f0f0;
+        }
+        .knowledge-sidebar-item.active {
+            background-color: #e8f4f0;
+            border-left: 3px solid #1ab394;
+        }
+        .knowledge-sidebar-item .kb-name {
+            font-size: 13px;
+            color: #333;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding-right: 60px;
+        }
+        .knowledge-sidebar-item .kb-desc {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .knowledge-sidebar-item .kb-meta {
+            font-size: 11px;
+            color: #bbb;
+            margin-top: 4px;
+        }
+        .knowledge-sidebar-item .kb-actions {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: none;
+        }
+        .knowledge-sidebar-item:hover .kb-actions {
+            display: flex;
+            gap: 6px;
+        }
+        .kb-actions .kb-action-btn {
+            padding: 4px 6px;
+            font-size: 13px;
+            color: #999;
+            cursor: pointer;
+            border: none;
+            background: none;
+        }
+        .kb-actions .kb-action-btn:hover {
+            color: #1ab394;
+        }
+        .kb-actions .kb-action-btn.btn-delete:hover {
+            color: #ed5565;
+        }
+        .knowledge-sidebar-empty {
+            text-align: center;
+            color: #bbb;
+            padding: 40px 0;
+            font-size: 13px;
+        }
+
+        /* ========== 右侧详情区域 ========== */
+        .knowledge-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .knowledge-detail-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e7eaec;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fff;
+        }
+        .knowledge-detail-header h4 {
+            margin: 0;
+            font-size: 16px;
+            color: #333;
+        }
+        .knowledge-detail-header .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .knowledge-detail-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .knowledge-welcome {
+            text-align: center;
+            color: #999;
+            padding: 60px 0;
+        }
+        .knowledge-welcome h3 {
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        /* ========== 文件列表 ========== */
+        .file-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 15px;
+            background: #fff;
+            border: 1px solid #e7eaec;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            transition: box-shadow 0.15s;
+        }
+        .file-item:hover {
+            box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+        }
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 0;
+        }
+        .file-icon {
+            font-size: 24px;
+            color: #1ab394;
+            flex-shrink: 0;
+        }
+        .file-icon.zip { color: #f8ac59; }
+        .file-icon.img { color: #23c6c8; }
+        .file-name {
+            font-size: 13px;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .file-meta {
+            font-size: 11px;
+            color: #999;
+            margin-top: 2px;
+        }
+        .file-actions .btn-delete-file {
+            color: #999;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border: none;
+            background: none;
+        }
+        .file-actions .btn-delete-file:hover {
+            color: #ed5565;
+        }
+
+        /* ========== 上传区域 ========== */
+        .upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 6px;
+            padding: 30px;
+            text-align: center;
+            background: #fafafa;
+            cursor: pointer;
+            transition: border-color 0.2s, background-color 0.2s;
+            margin-top: 15px;
+        }
+        .upload-area:hover {
+            border-color: #1ab394;
+            background-color: #f0faf6;
+        }
+        .upload-area.dragover {
+            border-color: #1ab394;
+            background-color: #e8f4f0;
+        }
+        .upload-area .upload-icon {
+            font-size: 36px;
+            color: #1ab394;
+            margin-bottom: 10px;
+        }
+        .upload-area .upload-text {
+            font-size: 14px;
+            color: #666;
+        }
+        .upload-area .upload-hint {
+            font-size: 12px;
+            color: #999;
+            margin-top: 6px;
+        }
+
+        /* ========== 统计卡片 ========== */
+        .stat-cards {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            flex: 1;
+            padding: 15px;
+            background: #fff;
+            border: 1px solid #e7eaec;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-card .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1ab394;
+        }
+        .stat-card .stat-label {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        /* ========== 搜索框 ========== */
+        .search-box {
+            padding: 10px 15px;
+            border-bottom: 1px solid #e7eaec;
+        }
+        .search-box input {
+            width: 100%;
+            border: 1px solid #e7eaec;
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 13px;
+        }
+        .search-box input:focus {
+            border-color: #1ab394;
+            outline: none;
+        }
+    </style>
+</head>
+<body class="gray-bg">
+    <div class="wrapper wrapper-content">
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5><i class="fa fa-book"></i> AI知识库管理</h5>
+                        <div class="ibox-tools">
+                            <a class="collapse-link">
+                                <i class="fa fa-chevron-up"></i>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="ibox-content" style="padding: 0;">
+                        <div class="knowledge-layout">
+                            <!-- 左侧知识库列表 -->
+                            <div class="knowledge-sidebar">
+                                <div class="knowledge-sidebar-header">
+                                    <h5><i class="fa fa-database"></i> 知识库列表</h5>
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="openAddDialog()">
+                                        <i class="fa fa-plus"></i> 新增
+                                    </button>
+                                </div>
+                                <div class="search-box">
+                                    <input type="text" id="searchInput" placeholder="搜索知识库..." oninput="searchKnowledge()">
+                                </div>
+                                <div class="knowledge-sidebar-list" id="knowledgeList">
+                                    <div class="knowledge-sidebar-empty" id="kbEmpty">
+                                        <i class="fa fa-database"></i><br>暂无知识库
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 右侧详情区域 -->
+                            <div class="knowledge-main">
+                                <div id="detailArea">
+                                    <div class="knowledge-welcome" id="kbWelcome">
+                                        <h3><i class="fa fa-book"></i> AI知识库管理</h3>
+                                        <p>请选择左侧知识库查看详情，或点击新增创建知识库</p>
+                                        <p style="font-size: 12px; color: #bbb; margin-top: 15px;">支持上传 txt / md / csv / json / xml 等文本格式文件</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== 新增/编辑知识库弹窗 ========== -->
+    <div class="modal inmodal" id="knowledgeModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    <h4 class="modal-title" id="modalTitle">新增知识库</h4>
+                </div>
+                <form id="knowledgeForm">
+                    <div class="modal-body">
+                        <input type="hidden" id="editKnowledgeId" />
+                        <div class="form-group">
+                            <label class="control-label">知识库名称：</label>
+                            <input type="text" class="form-control" id="knowledgeName" name="knowledgeName" placeholder="请输入知识库名称" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label">描述：</label>
+                            <textarea class="form-control" id="description" name="description" rows="3" placeholder="请输入知识库描述"></textarea>
+                        </div>
+                        <div class="form-group" id="statusGroup" style="display:none;">
+                            <label class="control-label">状态：</label>
+                            <select class="form-control" id="status" name="status">
+                                <option value="0">正常</option>
+                                <option value="1">停用</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-white" data-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-primary" onclick="submitKnowledge()">确认</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <th:block th:include="include :: footer" />
+    <script th:inline="javascript">
+        var prefix = ctx + "ai/knowledge";
+        var currentKnowledgeId = null;
+        var allKnowledgeList = [];
+
+        // ========== 页面加载 ==========
+        $(document).ready(function() {
+            loadKnowledgeList();
+        });
+
+        // ========== 加载知识库列表 ==========
+        function loadKnowledgeList() {
+            $.ajax({
+                type: "GET",
+                url: prefix + "/list",
+                data: { pageNum: 1, pageSize: 100 },
+                success: function(result) {
+                    allKnowledgeList = result.rows || [];
+                    renderKnowledgeList(allKnowledgeList);
+                },
+                error: function() {
+                    layer.msg("加载知识库列表失败", { icon: 5 });
+                }
+            });
+        }
+
+        // ========== 搜索知识库 ==========
+        function searchKnowledge() {
+            var keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+            if (!keyword) {
+                renderKnowledgeList(allKnowledgeList);
+                return;
+            }
+            var filtered = allKnowledgeList.filter(function(item) {
+                return (item.knowledgeName && item.knowledgeName.toLowerCase().indexOf(keyword) > -1)
+                    || (item.description && item.description.toLowerCase().indexOf(keyword) > -1);
+            });
+            renderKnowledgeList(filtered);
+        }
+
+        // ========== 渲染知识库列表 ==========
+        function renderKnowledgeList(list) {
+            var container = document.getElementById('knowledgeList');
+            var emptyEl = document.getElementById('kbEmpty');
+
+            // 移除旧列表项（保留空提示）
+            var items = container.querySelectorAll('.knowledge-sidebar-item');
+            items.forEach(function(item) { item.remove(); });
+
+            if (!list || list.length === 0) {
+                if (emptyEl) emptyEl.style.display = '';
+                return;
+            }
+            if (emptyEl) emptyEl.style.display = 'none';
+
+            for (var i = 0; i < list.length; i++) {
+                var kb = list[i];
+                var statusBadge = kb.status === '1'
+                    ? '<span class="label label-danger" style="font-size:10px;">停用</span>'
+                    : '';
+                var itemHtml = '<div class="knowledge-sidebar-item' + (kb.knowledgeId == currentKnowledgeId ? ' active' : '') + '" '
+                    + 'data-id="' + kb.knowledgeId + '" '
+                    + 'onclick="selectKnowledge(' + kb.knowledgeId + ')">'
+                    + '<div class="kb-name">' + escapeHtml(kb.knowledgeName) + ' ' + statusBadge + '</div>'
+                    + '<div class="kb-desc">' + escapeHtml(kb.description || '暂无描述') + '</div>'
+                    + '<div class="kb-meta"><i class="fa fa-file-o"></i> ' + (kb.fileCount || 0) + ' 个文件 &nbsp; <i class="fa fa-clock-o"></i> ' + (kb.createTime || '') + '</div>'
+                    + '<div class="kb-actions">'
+                    + '<button class="kb-action-btn" onclick="event.stopPropagation();openEditDialog(' + kb.knowledgeId + ')" title="编辑"><i class="fa fa-edit"></i></button>'
+                    + '<button class="kb-action-btn btn-delete" onclick="event.stopPropagation();deleteKnowledge(' + kb.knowledgeId + ')" title="删除"><i class="fa fa-trash-o"></i></button>'
+                    + '</div>'
+                    + '</div>';
+                container.insertAdjacentHTML('beforeend', itemHtml);
+            }
+        }
+
+        // ========== 选择知识库 ==========
+        function selectKnowledge(knowledgeId) {
+            if (knowledgeId == currentKnowledgeId) return;
+            currentKnowledgeId = knowledgeId;
+
+            // 更新选中状态
+            var items = document.querySelectorAll('.knowledge-sidebar-item');
+            items.forEach(function(item) {
+                if (item.dataset.id == knowledgeId) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+
+            // 加载详情
+            loadKnowledgeDetail(knowledgeId);
+        }
+
+        // ========== 加载知识库详情 ==========
+        function loadKnowledgeDetail(knowledgeId) {
+            // 从列表中获取知识库信息
+            var kb = null;
+            for (var i = 0; i < allKnowledgeList.length; i++) {
+                if (allKnowledgeList[i].knowledgeId == knowledgeId) {
+                    kb = allKnowledgeList[i];
+                    break;
+                }
+            }
+            if (!kb) return;
+
+            var html = '';
+            // 头部
+            html += '<div class="knowledge-detail-header">';
+            html += '<h4><i class="fa fa-book"></i> ' + escapeHtml(kb.knowledgeName) + '</h4>';
+            html += '<div class="header-actions">';
+            html += '<button type="button" class="btn btn-warning btn-sm" onclick="openEditDialog(' + kb.knowledgeId + ')"><i class="fa fa-edit"></i> 编辑</button>';
+            html += '<button type="button" class="btn btn-danger btn-sm" onclick="deleteKnowledge(' + kb.knowledgeId + ')"><i class="fa fa-trash-o"></i> 删除</button>';
+            html += '</div>';
+            html += '</div>';
+
+            // 内容区
+            html += '<div class="knowledge-detail-body">';
+
+            // 统计卡片
+            html += '<div class="stat-cards">';
+            html += '<div class="stat-card"><div class="stat-value" id="fileCountStat">' + (kb.fileCount || 0) + '</div><div class="stat-label">文件数量</div></div>';
+            html += '<div class="stat-card"><div class="stat-value">' + (kb.status === '0' ? '正常' : '停用') + '</div><div class="stat-label">状态</div></div>';
+            html += '<div class="stat-card"><div class="stat-value">' + (kb.createTime || '-') + '</div><div class="stat-label">创建时间</div></div>';
+            html += '</div>';
+
+            // 描述
+            if (kb.description) {
+                html += '<div style="margin-bottom: 15px; padding: 10px 15px; background: #fff; border: 1px solid #e7eaec; border-radius: 4px;">';
+                html += '<strong style="color: #666;">描述：</strong><span style="color: #333;">' + escapeHtml(kb.description) + '</span>';
+                html += '</div>';
+            }
+
+            // 文件列表
+            html += '<div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">';
+            html += '<h5 style="margin: 0; font-size: 14px; color: #333;"><i class="fa fa-file-o"></i> 文件列表</h5>';
+            html += '</div>';
+            html += '<div id="fileListContainer"><div style="text-align:center; color:#bbb; padding:20px;">加载中...</div></div>';
+
+            // 上传区域
+            html += '<div class="upload-area" id="uploadArea" onclick="triggerUpload()">';
+            html += '<div class="upload-icon"><i class="fa fa-cloud-upload"></i></div>';
+            html += '<div class="upload-text">点击或拖拽文件到此处上传</div>';
+            html += '<div class="upload-hint">支持 txt / md / csv / json / xml 等文本格式，单文件不超过 10MB</div>';
+            html += '</div>';
+            html += '<input type="file" id="fileInput" style="display:none;" onchange="uploadFile()" />';
+
+            html += '</div>';
+
+            document.getElementById('detailArea').innerHTML = html;
+
+            // 加载文件列表
+            loadFileList(knowledgeId);
+
+            // 绑定拖拽事件
+            bindDragEvents();
+        }
+
+        // ========== 加载文件列表 ==========
+        function loadFileList(knowledgeId) {
+            $.ajax({
+                type: "GET",
+                url: prefix + "/files",
+                data: { knowledgeId: knowledgeId },
+                success: function(result) {
+                    var files = result.data || [];
+                    renderFileList(files);
+                },
+                error: function() {
+                    document.getElementById('fileListContainer').innerHTML = '<div style="text-align:center; color:#ed5565; padding:20px;">加载文件列表失败</div>';
+                }
+            });
+        }
+
+        // ========== 渲染文件列表 ==========
+        function renderFileList(files) {
+            var container = document.getElementById('fileListContainer');
+            if (!container) return;
+
+            if (!files || files.length === 0) {
+                container.innerHTML = '<div style="text-align:center; color:#bbb; padding:20px;"><i class="fa fa-file-o"></i> 暂无文件，请上传</div>';
+                return;
+            }
+
+            var html = '<ul class="file-list">';
+            for (var i = 0; i < files.length; i++) {
+                var file = files[i];
+                var iconClass = getFileIconClass(file.fileType);
+                var fileSize = formatFileSize(file.fileSize);
+                html += '<li class="file-item">';
+                html += '<div class="file-info">';
+                html += '<i class="fa ' + iconClass + ' file-icon"></i>';
+                html += '<div>';
+                html += '<div class="file-name" title="' + escapeHtml(file.fileName) + '">' + escapeHtml(file.fileName) + '</div>';
+                html += '<div class="file-meta">' + fileSize + ' · ' + (file.fileType || '').toUpperCase() + ' · ' + (file.createTime || '') + '</div>';
+                html += '</div>';
+                html += '</div>';
+                html += '<div class="file-actions">';
+                html += '<button class="btn-delete-file" onclick="deleteFile(' + file.fileId + ', ' + currentKnowledgeId + ')" title="删除文件"><i class="fa fa-trash-o"></i></button>';
+                html += '</div>';
+                html += '</li>';
+            }
+            html += '</ul>';
+            container.innerHTML = html;
+        }
+
+        // ========== 获取文件图标 ==========
+        function getFileIconClass(fileType) {
+            if (!fileType) return 'fa-file-o';
+            var type = fileType.toLowerCase();
+            if (type === 'pdf') return 'fa-file-pdf-o';
+            if (type === 'doc' || type === 'docx') return 'fa-file-word-o';
+            if (type === 'xls' || type === 'xlsx') return 'fa-file-excel-o';
+            if (type === 'ppt' || type === 'pptx') return 'fa-file-powerpoint-o';
+            if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].indexOf(type) > -1) return 'fa-file-image-o img';
+            if (['zip', 'rar', '7z', 'tar', 'gz'].indexOf(type) > -1) return 'fa-file-archive-o zip';
+            if (['mp3', 'wav', 'flac', 'aac'].indexOf(type) > -1) return 'fa-file-audio-o';
+            if (['mp4', 'avi', 'mkv', 'mov'].indexOf(type) > -1) return 'fa-file-movie-o';
+            if (['txt', 'md', 'csv', 'json', 'xml', 'html', 'css', 'js', 'java', 'py', 'sql', 'yml', 'yaml', 'properties', 'log', 'sh', 'bat'].indexOf(type) > -1) return 'fa-file-code-o';
+            return 'fa-file-o';
+        }
+
+        // ========== 格式化文件大小 ==========
+        function formatFileSize(bytes) {
+            if (!bytes) return '0 B';
+            var units = ['B', 'KB', 'MB', 'GB'];
+            var i = 0;
+            var size = bytes;
+            while (size >= 1024 && i < units.length - 1) {
+                size /= 1024;
+                i++;
+            }
+            return size.toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
+        }
+
+        // ========== 打开新增弹窗 ==========
+        function openAddDialog() {
+            document.getElementById('modalTitle').textContent = '新增知识库';
+            document.getElementById('editKnowledgeId').value = '';
+            document.getElementById('knowledgeName').value = '';
+            document.getElementById('description').value = '';
+            document.getElementById('status').value = '0';
+            document.getElementById('statusGroup').style.display = 'none';
+            $('#knowledgeModal').modal('show');
+        }
+
+        // ========== 打开编辑弹窗 ==========
+        function openEditDialog(knowledgeId) {
+            // 从列表中查找数据
+            var kb = null;
+            for (var i = 0; i < allKnowledgeList.length; i++) {
+                if (allKnowledgeList[i].knowledgeId == knowledgeId) {
+                    kb = allKnowledgeList[i];
+                    break;
+                }
+            }
+            if (!kb) return;
+
+            document.getElementById('modalTitle').textContent = '编辑知识库';
+            document.getElementById('editKnowledgeId').value = kb.knowledgeId;
+            document.getElementById('knowledgeName').value = kb.knowledgeName || '';
+            document.getElementById('description').value = kb.description || '';
+            document.getElementById('status').value = kb.status || '0';
+            document.getElementById('statusGroup').style.display = '';
+            $('#knowledgeModal').modal('show');
+        }
+
+        // ========== 提交知识库表单 ==========
+        function submitKnowledge() {
+            var knowledgeName = document.getElementById('knowledgeName').value.trim();
+            if (!knowledgeName) {
+                layer.msg("请输入知识库名称", { icon: 5 });
+                return;
+            }
+
+            var editId = document.getElementById('editKnowledgeId').value;
+            var data = {
+                knowledgeName: knowledgeName,
+                description: document.getElementById('description').value.trim()
+            };
+
+            if (editId) {
+                // 编辑
+                data.knowledgeId = editId;
+                data.status = document.getElementById('status').value;
+                $.ajax({
+                    type: "POST",
+                    url: prefix + "/edit",
+                    data: data,
+                    success: function(result) {
+                        if (result.code === 0) {
+                            layer.msg("修改成功", { icon: 1 });
+                            $('#knowledgeModal').modal('hide');
+                            loadKnowledgeList();
+                            // 如果编辑的是当前选中的，则刷新详情
+                            if (editId == currentKnowledgeId) {
+                                loadKnowledgeDetail(currentKnowledgeId);
+                            }
+                        } else {
+                            layer.msg(result.msg || "修改失败", { icon: 5 });
+                        }
+                    },
+                    error: function() {
+                        layer.msg("修改请求失败", { icon: 5 });
+                    }
+                });
+            } else {
+                // 新增
+                $.ajax({
+                    type: "POST",
+                    url: prefix + "/add",
+                    data: data,
+                    success: function(result) {
+                        if (result.code === 0) {
+                            layer.msg("新增成功", { icon: 1 });
+                            $('#knowledgeModal').modal('hide');
+                            loadKnowledgeList();
+                        } else {
+                            layer.msg(result.msg || "新增失败", { icon: 5 });
+                        }
+                    },
+                    error: function() {
+                        layer.msg("新增请求失败", { icon: 5 });
+                    }
+                });
+            }
+        }
+
+        // ========== 删除知识库 ==========
+        function deleteKnowledge(knowledgeId) {
+            layer.confirm('确认删除该知识库？删除后关联的文件也将一并删除，不可恢复。', { icon: 3, title: '提示' }, function(index) {
+                $.ajax({
+                    type: "POST",
+                    url: prefix + "/delete",
+                    data: { knowledgeId: knowledgeId },
+                    success: function(result) {
+                        if (result.code === 0) {
+                            layer.msg("删除成功", { icon: 1 });
+                            if (knowledgeId == currentKnowledgeId) {
+                                currentKnowledgeId = null;
+                                document.getElementById('detailArea').innerHTML =
+                                    '<div class="knowledge-welcome" id="kbWelcome">'
+                                    + '<h3><i class="fa fa-book"></i> AI知识库管理</h3>'
+                                    + '<p>请选择左侧知识库查看详情，或点击新增创建知识库</p>'
+                                    + '<p style="font-size: 12px; color: #bbb; margin-top: 15px;">支持上传 txt / md / csv / json / xml 等文本格式文件</p>'
+                                    + '</div>';
+                            }
+                            loadKnowledgeList();
+                        } else {
+                            layer.msg(result.msg || "删除失败", { icon: 5 });
+                        }
+                    },
+                    error: function() {
+                        layer.msg("删除请求失败", { icon: 5 });
+                    }
+                });
+                layer.close(index);
+            });
+        }
+
+        // ========== 触发文件选择 ==========
+        function triggerUpload() {
+            document.getElementById('fileInput').click();
+        }
+
+        // ========== 上传文件 ==========
+        function uploadFile() {
+            var fileInput = document.getElementById('fileInput');
+            if (!fileInput.files || fileInput.files.length === 0) return;
+
+            var file = fileInput.files[0];
+            if (file.size > 10 * 1024 * 1024) {
+                layer.msg("文件大小不能超过10MB", { icon: 5 });
+                fileInput.value = '';
+                return;
+            }
+
+            var formData = new FormData();
+            formData.append('file', file);
+            formData.append('knowledgeId', currentKnowledgeId);
+
+            var loadIndex = layer.load(1);
+
+            $.ajax({
+                type: "POST",
+                url: prefix + "/upload",
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(result) {
+                    layer.close(loadIndex);
+                    if (result.code === 0) {
+                        layer.msg("上传成功", { icon: 1 });
+                        // 刷新文件列表和知识库列表
+                        loadFileList(currentKnowledgeId);
+                        loadKnowledgeList();
+                    } else {
+                        layer.msg(result.msg || "上传失败", { icon: 5 });
+                    }
+                },
+                error: function() {
+                    layer.close(loadIndex);
+                    layer.msg("上传请求失败", { icon: 5 });
+                }
+            });
+
+            fileInput.value = '';
+        }
+
+        // ========== 删除文件 ==========
+        function deleteFile(fileId, knowledgeId) {
+            layer.confirm('确认删除该文件？删除后不可恢复。', { icon: 3, title: '提示' }, function(index) {
+                $.ajax({
+                    type: "POST",
+                    url: prefix + "/deleteFile",
+                    data: { fileId: fileId, knowledgeId: knowledgeId },
+                    success: function(result) {
+                        if (result.code === 0) {
+                            layer.msg("删除成功", { icon: 1 });
+                            loadFileList(currentKnowledgeId);
+                            loadKnowledgeList();
+                        } else {
+                            layer.msg(result.msg || "删除失败", { icon: 5 });
+                        }
+                    },
+                    error: function() {
+                        layer.msg("删除请求失败", { icon: 5 });
+                    }
+                });
+                layer.close(index);
+            });
+        }
+
+        // ========== 绑定拖拽上传事件 ==========
+        function bindDragEvents() {
+            var uploadArea = document.getElementById('uploadArea');
+            if (!uploadArea) return;
+
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                uploadArea.classList.remove('dragover');
+
+                var files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    var file = files[0];
+                    if (file.size > 10 * 1024 * 1024) {
+                        layer.msg("文件大小不能超过10MB", { icon: 5 });
+                        return;
+                    }
+
+                    var formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('knowledgeId', currentKnowledgeId);
+
+                    var loadIndex = layer.load(1);
+
+                    $.ajax({
+                        type: "POST",
+                        url: prefix + "/upload",
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        success: function(result) {
+                            layer.close(loadIndex);
+                            if (result.code === 0) {
+                                layer.msg("上传成功", { icon: 1 });
+                                loadFileList(currentKnowledgeId);
+                                loadKnowledgeList();
+                            } else {
+                                layer.msg(result.msg || "上传失败", { icon: 5 });
+                            }
+                        },
+                        error: function() {
+                            layer.close(loadIndex);
+                            layer.msg("上传请求失败", { icon: 5 });
+                        }
+                    });
+                }
+            });
+        }
+
+        // ========== HTML转义 ==========
+        function escapeHtml(text) {
+            var map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return String(text || '').replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+    </script>
+</body>
+</html>

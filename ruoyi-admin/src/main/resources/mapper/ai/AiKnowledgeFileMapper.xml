@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.ai.mapper.AiKnowledgeFileMapper">
+    
+    <resultMap type="AiKnowledgeFile" id="AiKnowledgeFileResult">
+        <result property="fileId"         column="file_id"        />
+        <result property="knowledgeId"    column="knowledge_id"   />
+        <result property="fileName"       column="file_name"      />
+        <result property="filePath"       column="file_path"      />
+        <result property="fileSize"       column="file_size"      />
+        <result property="fileType"       column="file_type"      />
+        <result property="content"        column="content"        />
+        <result property="status"         column="status"         />
+        <result property="createBy"       column="create_by"      />
+        <result property="createTime"     column="create_time"    />
+    </resultMap>
+    
+    <sql id="selectFileVo">
+        select file_id, knowledge_id, file_name, file_path, file_size, file_type, cast(content as char) as content, status, create_by, create_time 
+        from ai_knowledge_file
+    </sql>
+    
+    <select id="selectFileById" parameterType="Long" resultMap="AiKnowledgeFileResult">
+        <include refid="selectFileVo"/>
+        where file_id = #{fileId}
+    </select>
+    
+    <select id="selectFileByKnowledgeId" parameterType="Long" resultMap="AiKnowledgeFileResult">
+        <include refid="selectFileVo"/>
+        where knowledge_id = #{knowledgeId}
+        order by create_time desc
+    </select>
+    
+    <insert id="insertFile" parameterType="AiKnowledgeFile" useGeneratedKeys="true" keyProperty="fileId">
+        insert into ai_knowledge_file (
+            <if test="knowledgeId != null">knowledge_id,</if>
+            <if test="fileName != null and fileName != ''">file_name,</if>
+            <if test="filePath != null and filePath != ''">file_path,</if>
+            <if test="fileSize != null">file_size,</if>
+            <if test="fileType != null and fileType != ''">file_type,</if>
+            <if test="content != null and content != ''">content,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time
+        )values(
+            <if test="knowledgeId != null">#{knowledgeId},</if>
+            <if test="fileName != null and fileName != ''">#{fileName},</if>
+            <if test="filePath != null and filePath != ''">#{filePath},</if>
+            <if test="fileSize != null">#{fileSize},</if>
+            <if test="fileType != null and fileType != ''">#{fileType},</if>
+            <if test="content != null and content != ''">#{content},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate()
+        )
+    </insert>
+    
+    <delete id="deleteFileByKnowledgeId" parameterType="Long">
+        delete from ai_knowledge_file where knowledge_id = #{knowledgeId}
+    </delete>
+    
+    <delete id="deleteFileById" parameterType="Long">
+        delete from ai_knowledge_file where file_id = #{fileId}
+    </delete>
+    
+    <delete id="deleteFileByIds" parameterType="String">
+        delete from ai_knowledge_file where file_id in 
+        <foreach item="fileId" collection="array" open="(" separator="," close=")">
+            #{fileId}
+        </foreach>
+    </delete>
+    
+</mapper>
