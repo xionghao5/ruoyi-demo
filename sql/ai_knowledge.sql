@@ -36,3 +36,21 @@ create table ai_knowledge_file (
   primary key (file_id),
   key idx_knowledge_id (knowledge_id)
 ) engine=innodb auto_increment=1 comment = 'AI知识库文件表';
+
+-- ----------------------------
+-- AI知识库文件分块表
+-- ----------------------------
+drop table if exists ai_knowledge_chunk;
+create table ai_knowledge_chunk (
+  chunk_id         bigint(20)      not null auto_increment    comment '分块ID',
+  file_id          bigint(20)      not null                   comment '文件ID',
+  knowledge_id     bigint(20)      not null                   comment '知识库ID',
+  content          text                                       comment '文本块内容',
+  embedding        text                                       comment '向量数据(JSON数组)',
+  chunk_index      int(11)         default 0                  comment '分块序号',
+  status           char(1)         default '0'                comment '状态（0正常 1失败）',
+  create_time      datetime                                   comment '创建时间',
+  primary key (chunk_id),
+  key idx_file_id (file_id),
+  key idx_knowledge_id (knowledge_id)
+) engine=innodb auto_increment=1 comment = 'AI知识库文件分块表';

@@ -4,6 +4,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.ruoyi.ai.domain.AiKnowledgeFile;
+import com.ruoyi.ai.mapper.AiKnowledgeChunkMapper;
 import com.ruoyi.ai.mapper.AiKnowledgeFileMapper;
 import com.ruoyi.ai.service.IAiKnowledgeFileService;
 import com.ruoyi.common.core.text.Convert;
@@ -18,6 +19,9 @@ public class AiKnowledgeFileServiceImpl implements IAiKnowledgeFileService
 {
     @Autowired
     private AiKnowledgeFileMapper knowledgeFileMapper;
+
+    @Autowired
+    private AiKnowledgeChunkMapper chunkMapper;
 
     @Override
     public AiKnowledgeFile selectFileById(Long fileId)
@@ -40,12 +44,19 @@ public class AiKnowledgeFileServiceImpl implements IAiKnowledgeFileService
     @Override
     public int deleteFileById(Long fileId)
     {
+        // 级联删除文件分块
+        chunkMapper.deleteChunksByFileId(fileId);
         return knowledgeFileMapper.deleteFileById(fileId);
     }
 
     @Override
     public int deleteFileByIds(String ids)
     {
-        return knowledgeFileMapper.deleteFileByIds(Convert.toStrArray(ids));
+        String[] fileIds = Convert.toStrArray(ids);
+        for (String fileId : fileIds)
+        {
+            chunkMapper.deleteChunksByFileId(Long.valueOf(fileId));
+        }
+        return knowledgeFileMapper.deleteFileByIds(fileIds);
     }
 }

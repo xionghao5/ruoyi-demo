@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.ruoyi.ai.domain.AiKnowledge;
 import com.ruoyi.ai.domain.AiKnowledgeFile;
+import com.ruoyi.ai.mapper.AiKnowledgeChunkMapper;
 import com.ruoyi.ai.mapper.AiKnowledgeMapper;
 import com.ruoyi.ai.mapper.AiKnowledgeFileMapper;
 import com.ruoyi.ai.service.IAiKnowledgeService;
@@ -23,6 +24,9 @@ public class AiKnowledgeServiceImpl implements IAiKnowledgeService
 
     @Autowired
     private AiKnowledgeFileMapper knowledgeFileMapper;
+
+    @Autowired
+    private AiKnowledgeChunkMapper chunkMapper;
 
     @Override
     public AiKnowledge selectKnowledgeById(Long knowledgeId)
@@ -51,7 +55,8 @@ public class AiKnowledgeServiceImpl implements IAiKnowledgeService
     @Override
     public int deleteKnowledgeById(Long knowledgeId)
     {
-        // 先删除该知识库下的所有文件
+        // 级联删除分块和文件
+        chunkMapper.deleteChunksByKnowledgeId(knowledgeId);
         knowledgeFileMapper.deleteFileByKnowledgeId(knowledgeId);
         return knowledgeMapper.deleteKnowledgeById(knowledgeId);
     }
@@ -62,6 +67,7 @@ public class AiKnowledgeServiceImpl implements IAiKnowledgeService
         String[] knowledgeIds = Convert.toStrArray(ids);
         for (String knowledgeId : knowledgeIds)
         {
+            chunkMapper.deleteChunksByKnowledgeId(Long.valueOf(knowledgeId));
             knowledgeFileMapper.deleteFileByKnowledgeId(Long.valueOf(knowledgeId));
         }
         return knowledgeMapper.deleteKnowledgeByIds(knowledgeIds);

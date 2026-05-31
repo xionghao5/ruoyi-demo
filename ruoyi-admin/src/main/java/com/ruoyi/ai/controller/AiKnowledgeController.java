@@ -1,11 +1,14 @@
 package com.ruoyi.ai.controller;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
+import com.ruoyi.ai.domain.AiKnowledgeChunk;
+import com.ruoyi.ai.service.AiEmbeddingService;
+import com.ruoyi.ai.service.IAiKnowledgeChunkService;
 import com.ruoyi.common.utils.file.FileReaderUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
@@ -13,7 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,7 +27,6 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.utils.ShiroUtils;
-import com.ruoyi.common.utils.file.FileUtils;
 import com.ruoyi.common.utils.uuid.IdUtils;
 import com.ruoyi.ai.domain.AiKnowledge;
 import com.ruoyi.ai.domain.AiKnowledgeFile;
@@ -51,6 +52,12 @@ public class AiKnowledgeController extends BaseController
 
     @Autowired
     private IAiKnowledgeFileService knowledgeFileService;
+
+    @Autowired
+    private IAiKnowledgeChunkService knowledgeChunkService;
+
+    @Autowired
+    private AiEmbeddingService embeddingService;
 
     @RequiresPermissions("ai:knowledge:view")
     @GetMapping()
@@ -200,6 +207,42 @@ public class AiKnowledgeController extends BaseController
         knowledgeFile.setCreateBy(ShiroUtils.getLoginName());
         knowledgeFileService.insertFile(knowledgeFile);
 
+        // 文件内容切分并向量化
+        if (content != null && !content.trim().isEmpty())
+        {
+            try
+            {
+                List<String> chunks = splitContentIntoChunks(content);
+                if (!chunks.isEmpty())
+                {
+                    List<String> embeddings = embeddingService.getEmbeddings(chunks);
+                    List<AiKnowledgeChunk> chunkList = new ArrayList<>();
+                    for (int i = 0; i < chunks.size(); i++)
+                    {
+                        AiKnowledgeChunk chunk = new AiKnowledgeChunk();
+                        chunk.setFileId(knowledgeFile.getFileId());
+                        chunk.setKnowledgeId(knowledgeId);
+                        chunk.setContent(chunks.get(i));
+                        chunk.setChunkIndex(i);
+                        chunk.setStatus("0");
+                        if (embeddings != null && i < embeddings.size() && embeddings.get(i) != null)
+                        {
+                            chunk.setEmbedding(embeddings.get(i));
+                        }
+                        chunkList.add(chunk);
+                    }
+                    if (!chunkList.isEmpty())
+                    {
+                        knowledgeChunkService.batchInsertChunks(chunkList);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                log.error("文件切分或向量化失败，fileId={}", knowledgeFile.getFileId(), e);
+            }
+        }
+
         // 更新知识库文件计数
         AiKnowledge knowledge = knowledgeService.selectKnowledgeById(knowledgeId);
         if (knowledge != null)
@@ -221,6 +264,8 @@ public class AiKnowledgeController extends BaseController
     public AjaxResult deleteFile(@RequestParam("fileId") Long fileId,
                                  @RequestParam("knowledgeId") Long knowledgeId)
     {
+        // 级联删除文件分块
+        knowledgeChunkService.deleteChunksByFileId(fileId);
         knowledgeFileService.deleteFileById(fileId);
 
         // 更新知识库文件计数
@@ -260,5 +305,70 @@ public class AiKnowledgeController extends BaseController
         }
         // 非文本格式暂不支持自动提取，返回提示
         return "[该文件格式（." + extension + "）暂不支持自动提取文本内容，请上传txt/md/csv等文本格式文件]";
+    }
+
+    /**
+     * 按自然段切分文本，每块不超过512字
+     */
+    private List<String> splitContentIntoChunks(String content)
+    {
+        List<String> chunks = new ArrayList<>();
+        if (content == null || content.trim().isEmpty())
+        {
+            return chunks;
+        }
+
+        String[] paragraphs = content.split("\\n");
+        StringBuilder currentChunk = new StringBuilder();
+        final int MAX_LENGTH = 512;
+
+        for (String paragraph : paragraphs)
+        {
+            String trimmed = paragraph.trim();
+            if (trimmed.isEmpty())
+            {
+                continue;
+            }
+
+            // 单个自然段超过最大长度，直接强制切分
+            if (trimmed.length() > MAX_LENGTH)
+            {
+                if (currentChunk.length() > 0)
+                {
+                    chunks.add(currentChunk.toString().trim());
+                    currentChunk.setLength(0);
+                }
+                for (int i = 0; i < trimmed.length(); i += MAX_LENGTH)
+                {
+                    int end = Math.min(i + MAX_LENGTH, trimmed.length());
+                    chunks.add(trimmed.substring(i, end));
+                }
+            }
+            else
+            {
+                // 累积自然段，接近512字时形成一个chunk
+                if (currentChunk.length() + trimmed.length() + 1 <= MAX_LENGTH)
+                {
+                    if (currentChunk.length() > 0)
+                    {
+                        currentChunk.append("\n");
+                    }
+                    currentChunk.append(trimmed);
+                }
+                else
+                {
+                    chunks.add(currentChunk.toString().trim());
+                    currentChunk.setLength(0);
+                    currentChunk.append(trimmed);
+                }
+            }
+        }
+
+        if (currentChunk.length() > 0)
+        {
+            chunks.add(currentChunk.toString().trim());
+        }
+
+        return chunks;
     }
 }
