@@ -36,7 +36,9 @@ import com.ruoyi.common.core.domain.entity.SysUser;
 
 /**
  * AI知识库控制器
- * 
+ *
+ * 知识库-文件-chunk-vector
+ *
  * @author ruoyi
  */
 @Controller
