@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <th:block th:include="include :: header('向量库管理')" />
+    <style>
+        /* ========== 整体布局 ========== */
+        .store-layout {
+            display: flex;
+            height: calc(100vh - 120px);
+            border: 1px solid #e7eaec;
+            border-radius: 4px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        /* ========== 左侧向量库列表 ========== */
+        .store-sidebar {
+            width: 300px;
+            min-width: 300px;
+            border-right: 1px solid #e7eaec;
+            display: flex;
+            flex-direction: column;
+            background-color: #fafafa;
+        }
+        .store-sidebar-header {
+            padding: 15px;
+            border-bottom: 1px solid #e7eaec;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .store-sidebar-header h5 {
+            margin: 0;
+            font-size: 14px;
+            color: #333;
+        }
+        .store-sidebar-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+        .store-sidebar-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            position: relative;
+            transition: background-color 0.15s;
+        }
+        .store-sidebar-item:hover {
+            background-color: #f0f0f0;
+        }
+        .store-sidebar-item.active {
+            background-color: #e8f4f0;
+            border-left: 3px solid #1ab394;
+        }
+        .store-sidebar-item .vs-name {
+            font-size: 13px;
+            color: #333;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding-right: 60px;
+        }
+        .store-sidebar-item .vs-desc {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .store-sidebar-item .vs-meta {
+            font-size: 11px;
+            color: #bbb;
+            margin-top: 4px;
+        }
+        .store-sidebar-item .vs-actions {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: none;
+        }
+        .store-sidebar-item:hover .vs-actions {
+            display: flex;
+            gap: 6px;
+        }
+        .vs-actions .vs-action-btn {
+            padding: 4px 6px;
+            font-size: 13px;
+            color: #999;
+            cursor: pointer;
+            border: none;
+            background: none;
+        }
+        .vs-actions .vs-action-btn:hover {
+            color: #1ab394;
+        }
+        .vs-actions .vs-action-btn.btn-delete:hover {
+            color: #ed5565;
+        }
+        .store-sidebar-empty {
+            text-align: center;
+            color: #bbb;
+            padding: 40px 0;
+            font-size: 13px;
+        }
+
+        /* ========== 右侧详情区域 ========== */
+        .store-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .store-detail-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e7eaec;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fff;
+        }
+        .store-detail-header h4 {
+            margin: 0;
+            font-size: 16px;
+            color: #333;
+        }
+        .store-detail-header .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .store-detail-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .store-welcome {
+            text-align: center;
+            color: #999;
+            padding: 60px 0;
+        }
+        .store-welcome h3 {
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        /* ========== 统计卡片 ========== */
+        .stat-cards {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            flex: 1;
+            padding: 15px;
+            background: #fff;
+            border: 1px solid #e7eaec;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-card .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1ab394;
+        }
+        .stat-card .stat-label {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        /* ========== 搜索框 ========== */
+        .search-box {
+            padding: 10px 15px;
+            border-bottom: 1px solid #e7eaec;
+        }
+        .search-box input {
+            width: 100%;
+            border: 1px solid #e7eaec;
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 13px;
+        }
+        .search-box input:focus {
+            border-color: #1ab394;
+            outline: none;
+        }
+
+        /* ========== 向量数据列表 ========== */
+        .data-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .data-item {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            padding: 12px 15px;
+            background: #fff;
+            border: 1px solid #e7eaec;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            transition: box-shadow 0.15s;
+        }
+        .data-item:hover {
+            box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+        }
+        .data-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .data-content {
+            font-size: 13px;
+            color: #333;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 60px;
+            overflow: hidden;
+            position: relative;
+        }
+        .data-content.expanded {
+            max-height: none;
+        }
+        .data-meta {
+            font-size: 11px;
+            color: #999;
+            margin-top: 6px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .data-meta span {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+        .data-actions {
+            flex-shrink: 0;
+            margin-left: 10px;
+            display: flex;
+            gap: 6px;
+            align-items: flex-start;
+        }
+        .data-actions .btn-data-action {
+            color: #999;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border: none;
+            background: none;
+        }
+        .data-actions .btn-data-action:hover {
+            color: #1ab394;
+        }
+        .data-actions .btn-data-action.btn-delete:hover {
+            color: #ed5565;
+        }
+
+        /* ========== 检索区域 ========== */
+        .search-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff;
+            border: 1px solid #e7eaec;
+            border-radius: 4px;
+        }
+        .search-section h5 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            color: #333;
+        }
+        .search-input-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .search-input-group input {
+            flex: 1;
+            border: 1px solid #e7eaec;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+        .search-input-group input:focus {
+            border-color: #1ab394;
+            outline: none;
+        }
+        .search-input-group .btn-search {
+            flex-shrink: 0;
+        }
+        .search-results {
+            margin-top: 10px;
+        }
+        .search-result-item {
+            padding: 10px 15px;
+            background: #fafafa;
+            border: 1px solid #e7eaec;
+            border-radius: 4px;
+            margin-bottom: 6px;
+        }
+        .search-result-item .result-content {
+            font-size: 13px;
+            color: #333;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .search-result-item .result-meta {
+            font-size: 11px;
+            color: #1ab394;
+            margin-top: 4px;
+        }
+
+        /* ========== 分页 ========== */
+        .data-pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 15px;
+            font-size: 13px;
+            color: #666;
+        }
+        .data-pagination button {
+            padding: 4px 12px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            background: #fff;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .data-pagination button:hover:not(:disabled) {
+            border-color: #1ab394;
+            color: #1ab394;
+        }
+        .data-pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ========== 区块标题 ========== */
+        .section-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .section-title h5 {
+            margin: 0;
+            font-size: 14px;
+            color: #333;
+        }
+
+        /* ========== 向量数据标签 ========== */
+        .tag {
+            display: inline-block;
+            padding: 2px 6px;
+            font-size: 11px;
+            border-radius: 3px;
+            margin-right: 4px;
+        }
+        .tag-success { background: #e8f4f0; color: #1ab394; }
+        .tag-danger { background: #fde8e8; color: #ed5565; }
+        .tag-info { background: #e8f0fe; color: #23c6c8; }
+    </style>
+</head>
+<body class="gray-bg">
+    <div class="wrapper wrapper-content">
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5><i class="fa fa-cubes"></i> 向量库管理</h5>
+                        <div class="ibox-tools">
+                            <a class="collapse-link">
+                                <i class="fa fa-chevron-up"></i>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="ibox-content" style="padding: 0;">
+                        <div class="store-layout">
+                            <!-- 左侧向量库列表 -->
+                            <div class="store-sidebar">
+                                <div class="store-sidebar-header">
+                                    <h5><i class="fa fa-database"></i> 向量库列表</h5>
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="openAddStoreDialog()">
+                                        <i class="fa fa-plus"></i> 新增
+                                    </button>
+                                </div>
+                                <div class="search-box">
+                                    <input type="text" id="searchInput" placeholder="搜索向量库..." oninput="searchStore()">
+                                </div>
+                                <div class="store-sidebar-list" id="storeList">
+                                    <div class="store-sidebar-empty" id="storeEmpty">
+                                        <i class="fa fa-database"></i><br>暂无向量库
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 右侧详情区域 -->
+                            <div class="store-main">
+                                <div id="detailArea">
+                                    <div class="store-welcome" id="storeWelcome">
+                                        <h3><i class="fa fa-cubes"></i> 向量库管理</h3>
+                                        <p>请选择左侧向量库查看详情，或点击新增创建向量库</p>
+                                        <p style="font-size: 12px; color: #bbb; margin-top: 15px;">支持向量数据的增删改查、文本相似度检索等功能</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== 新增/编辑向量库弹窗 ========== -->
+    <div class="modal inmodal" id="storeModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    <h4 class="modal-title" id="storeModalTitle">新增向量库</h4>
+                </div>
+                <form id="storeForm">
+                    <div class="modal-body">
+                        <input type="hidden" id="editStoreId" />
+                        <div class="form-group">
+                            <label class="control-label">向量库名称：</label>
+                            <input type="text" class="form-control" id="storeName" name="storeName" placeholder="请输入向量库名称" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label">描述：</label>
+                            <textarea class="form-control" id="storeDescription" name="description" rows="3" placeholder="请输入向量库描述"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label">向量维度：</label>
+                            <input type="number" class="form-control" id="dimension" name="dimension" placeholder="默认1536" value="1536">
+                        </div>
+                        <div class="form-group" id="storeStatusGroup" style="display:none;">
+                            <label class="control-label">状态：</label>
+                            <select class="form-control" id="storeStatus" name="status">
+                                <option value="0">正常</option>
+                                <option value="1">停用</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-white" data-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-primary" onclick="submitStore()">确认</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== 新增/编辑向量数据弹窗 ========== -->
+    <div class="modal inmodal" id="dataModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    <h4 class="modal-title" id="dataModalTitle">新增向量数据</h4>
+                </div>
+                <form id="dataForm">
+                    <div class="modal-body">
+                        <input type="hidden" id="editDataId" />
+                        <input type="hidden" id="dataStoreId" />
+                        <div class="form-group">
+                            <label class="control-label">文本内容：</label>
+                            <textarea class="form-control" id="dataContent" name="content" rows="5" placeholder="请输入文本内容，系统将自动生成向量" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label">向量数据（JSON数组，留空则自动生成）：</label>
+                            <textarea class="form-control" id="dataEmbedding" name="embedding" rows="3" placeholder='如 [0.1, 0.2, ...]，留空将自动根据文本内容生成'></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label">元数据（JSON格式，可选）：</label>
+                            <textarea class="form-control" id="dataMetadata" name="metadata" rows="2" placeholder='如 {"source":"doc1","page":1}'></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-white" data-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-primary" onclick="submitData()">确认</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== 向量数据详情弹窗 ========== -->
+    <div class="modal inmodal" id="dataDetailModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    <h4 class="modal-title">向量数据详情</h4>
+                </div>
+                <div class="modal-body" id="dataDetailBody">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-white" data-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <th:block th:include="include :: footer" />
+    <script th:inline="javascript">
+        var prefix = ctx + "vb/store";
+        var currentStoreId = null;
+        var allStoreList = [];
+        var dataPageNum = 1;
+        var dataPageSize = 10;
+        var dataTotal = 0;
+
+        // ========== 页面加载 ==========
+        $(document).ready(function() {
+            loadStoreList();
+        });
+
+        // ========== 加载向量库列表 ==========
+        function loadStoreList() {
+            $.ajax({
+                type: "GET",
+                url: prefix + "/list",
+                data: { pageNum: 1, pageSize: 100 },
+                success: function(result) {
+                    allStoreList = result.rows || [];
+                    renderStoreList(allStoreList);
+                },
+                error: function() {
+                    layer.msg("加载向量库列表失败", { icon: 5 });
+                }
+            });
+        }
+
+        // ========== 搜索向量库 ==========
+        function searchStore() {
+            var keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+            if (!keyword) {
+                renderStoreList(allStoreList);
+                return;
+            }
+            var filtered = allStoreList.filter(function(item) {
+                return (item.storeName && item.storeName.toLowerCase().indexOf(keyword) > -1)
+                    || (item.description && item.description.toLowerCase().indexOf(keyword) > -1);
+            });
+            renderStoreList(filtered);
+        }
+
+        // ========== 渲染向量库列表 ==========
+        function renderStoreList(list) {
+            var container = document.getElementById('storeList');
+            var emptyEl = document.getElementById('storeEmpty');
+
+            var items = container.querySelectorAll('.store-sidebar-item');
+            items.forEach(function(item) { item.remove(); });
+
+            if (!list || list.length === 0) {
+                if (emptyEl) emptyEl.style.display = '';
+                return;
+            }
+            if (emptyEl) emptyEl.style.display = 'none';
+
+            for (var i = 0; i < list.length; i++) {
+                var store = list[i];
+                var statusBadge = store.status === '1'
+                    ? '<span class="label label-danger" style="font-size:10px;">停用</span>'
+                    : '';
+                var itemHtml = '<div class="store-sidebar-item' + (store.storeId == currentStoreId ? ' active' : '') + '" '
+                    + 'data-id="' + store.storeId + '" '
+                    + 'onclick="selectStore(' + store.storeId + ')">'
+                    + '<div class="vs-name">' + escapeHtml(store.storeName) + ' ' + statusBadge + '</div>'
+                    + '<div class="vs-desc">' + escapeHtml(store.description || '暂无描述') + '</div>'
+                    + '<div class="vs-meta"><i class="fa fa-cube"></i> ' + (store.vectorCount || 0) + ' 条向量 &nbsp; <i class="fa fa-arrows-alt"></i> ' + (store.dimension || 1536) + ' 维 &nbsp; <i class="fa fa-clock-o"></i> ' + (store.createTime || '') + '</div>'
+                    + '<div class="vs-actions">'
+                    + '<button class="vs-action-btn" onclick="event.stopPropagation();openEditStoreDialog(' + store.storeId + ')" title="编辑"><i class="fa fa-edit"></i></button>'
+                    + '<button class="vs-action-btn btn-delete" onclick="event.stopPropagation();deleteStore(' + store.storeId + ')" title="删除"><i class="fa fa-trash-o"></i></button>'
+                    + '</div>'
+                    + '</div>';
+                container.insertAdjacentHTML('beforeend', itemHtml);
+            }
+        }
+
+        // ========== 选择向量库 ==========
+        function selectStore(storeId) {
+            if (storeId == currentStoreId) return;
+            currentStoreId = storeId;
+            dataPageNum = 1;
+
+            var items = document.querySelectorAll('.store-sidebar-item');
+            items.forEach(function(item) {
+                if (item.dataset.id == storeId) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+
+            loadStoreDetail(storeId);
+        }
+
+        // ========== 加载向量库详情 ==========
+        function loadStoreDetail(storeId) {
+            var store = null;
+            for (var i = 0; i < allStoreList.length; i++) {
+                if (allStoreList[i].storeId == storeId) {
+                    store = allStoreList[i];
+                    break;
+                }
+            }
+            if (!store) return;
+
+            var html = '';
+            // 头部
+            html += '<div class="store-detail-header">';
+            html += '<h4><i class="fa fa-cubes"></i> ' + escapeHtml(store.storeName) + '</h4>';
+            html += '<div class="header-actions">';
+            html += '<button type="button" class="btn btn-info btn-sm" onclick="loadStoreStats(' + store.storeId + ')"><i class="fa fa-bar-chart"></i> 内存统计</button>';
+            html += '<button type="button" class="btn btn-warning btn-sm" onclick="openEditStoreDialog(' + store.storeId + ')"><i class="fa fa-edit"></i> 编辑</button>';
+            html += '<button type="button" class="btn btn-danger btn-sm" onclick="deleteStore(' + store.storeId + ')"><i class="fa fa-trash-o"></i> 删除</button>';
+            html += '</div>';
+            html += '</div>';
+
+            // 内容区
+            html += '<div class="store-detail-body">';
+
+            // 统计卡片
+            html += '<div class="stat-cards">';
+            html += '<div class="stat-card"><div class="stat-value">' + (store.vectorCount || 0) + '</div><div class="stat-label">向量数量</div></div>';
+            html += '<div class="stat-card"><div class="stat-value">' + (store.dimension || 1536) + '</div><div class="stat-label">向量维度</div></div>';
+            html += '<div class="stat-card"><div class="stat-value">' + (store.status === '0' ? '正常' : '停用') + '</div><div class="stat-label">状态</div></div>';
+            html += '<div class="stat-card"><div class="stat-value">' + (store.createTime || '-') + '</div><div class="stat-label">创建时间</div></div>';
+            html += '</div>';
+
+            // 描述
+            if (store.description) {
+                html += '<div style="margin-bottom: 15px; padding: 10px 15px; background: #fff; border: 1px solid #e7eaec; border-radius: 4px;">';
+                html += '<strong style="color: #666;">描述：</strong><span style="color: #333;">' + escapeHtml(store.description) + '</span>';
+                html += '</div>';
+            }
+
+            // 向量数据列表
+            html += '<div class="section-title">';
+            html += '<h5><i class="fa fa-list"></i> 向量数据</h5>';
+            html += '<button type="button" class="btn btn-primary btn-sm" onclick="openAddDataDialog()"><i class="fa fa-plus"></i> 新增数据</button>';
+            html += '</div>';
+            html += '<div id="dataListContainer"><div style="text-align:center; color:#bbb; padding:20px;">加载中...</div></div>';
+
+            // 分页
+            html += '<div class="data-pagination" id="dataPagination"></div>';
+
+            // 检索区域
+            html += '<div class="search-section">';
+            html += '<h5><i class="fa fa-search"></i> 相似度检索</h5>';
+            html += '<div class="search-input-group">';
+            html += '<input type="text" id="searchQuery" placeholder="输入查询文本，系统将自动转向量并检索相似结果...">';
+            html += '<input type="number" id="searchTopK" value="5" min="1" max="100" style="width:80px;" placeholder="TopK">';
+            html += '<button type="button" class="btn btn-primary btn-sm btn-search" onclick="searchByText()"><i class="fa fa-search"></i> 检索</button>';
+            html += '</div>';
+            html += '<div class="search-results" id="searchResults"></div>';
+            html += '</div>';
+
+            html += '</div>';
+
+            document.getElementById('detailArea').innerHTML = html;
+
+            // 加载向量数据
+            loadDataList();
+        }
+
+        // ========== 加载向量数据列表 ==========
+        function loadDataList() {
+            $.ajax({
+                type: "GET",
+                url: prefix + "/data/list",
+                data: { storeId: currentStoreId, pageNum: dataPageNum, pageSize: dataPageSize },
+                success: function(result) {
+                    var list = result.rows || [];
+                    dataTotal = result.total || 0;
+                    renderDataList(list);
+                    renderDataPagination();
+                },
+                error: function() {
+                    document.getElementById('dataListContainer').innerHTML = '<div style="text-align:center; color:#ed5565; padding:20px;">加载数据列表失败</div>';
+                }
+            });
+        }
+
+        // ========== 渲染向量数据列表 ==========
+        function renderDataList(list) {
+            var container = document.getElementById('dataListContainer');
+            if (!container) return;
+
+            if (!list || list.length === 0) {
+                container.innerHTML = '<div style="text-align:center; color:#bbb; padding:20px;"><i class="fa fa-cube"></i> 暂无向量数据，请新增</div>';
+                return;
+            }
+
+            var html = '<ul class="data-list">';
+            for (var i = 0; i < list.length; i++) {
+                var item = list[i];
+                var hasEmbedding = item.embedding && item.embedding.trim().length > 0;
+                var statusTag = item.status === '0'
+                    ? '<span class="tag tag-success">正常</span>'
+                    : '<span class="tag tag-danger">停用</span>';
+                var embedTag = hasEmbedding
+                    ? '<span class="tag tag-info">已向量化</span>'
+                    : '<span class="tag tag-danger">未向量化</span>';
+
+                html += '<li class="data-item">';
+                html += '<div class="data-info">';
+                html += '<div class="data-content" id="dataContent_' + item.dataId + '">' + escapeHtml(item.content || '无内容') + '</div>';
+                html += '<div class="data-meta">';
+                html += '<span>ID: ' + item.dataId + '</span>';
+                html += '<span>' + statusTag + '</span>';
+                html += '<span>' + embedTag + '</span>';
+                html += '<span><i class="fa fa-clock-o"></i> ' + (item.createTime || '') + '</span>';
+                if (item.metadata) {
+                    html += '<span><i class="fa fa-tag"></i> ' + escapeHtml(item.metadata.length > 50 ? item.metadata.substring(0, 50) + '...' : item.metadata) + '</span>';
+                }
+                html += '</div>';
+                html += '</div>';
+                html += '<div class="data-actions">';
+                html += '<button class="btn-data-action" onclick="viewDataDetail(' + item.dataId + ')" title="查看详情"><i class="fa fa-eye"></i></button>';
+                html += '<button class="btn-data-action" onclick="openEditDataDialog(' + item.dataId + ')" title="编辑"><i class="fa fa-edit"></i></button>';
+                html += '<button class="btn-data-action btn-delete" onclick="deleteData(' + item.dataId + ')" title="删除"><i class="fa fa-trash-o"></i></button>';
+                html += '</div>';
+                html += '</li>';
+            }
+            html += '</ul>';
+            container.innerHTML = html;
+        }
+
+        // ========== 渲染数据分页 ==========
+        function renderDataPagination() {
+            var container = document.getElementById('dataPagination');
+            if (!container) return;
+
+            var totalPages = Math.ceil(dataTotal / dataPageSize);
+            if (totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+
+            var html = '<button onclick="goDataPage(' + (dataPageNum - 1) + ')"' + (dataPageNum <= 1 ? ' disabled' : '') + '>上一页</button>';
+            html += '<span>第 ' + dataPageNum + ' / ' + totalPages + ' 页，共 ' + dataTotal + ' 条</span>';
+            html += '<button onclick="goDataPage(' + (dataPageNum + 1) + ')"' + (dataPageNum >= totalPages ? ' disabled' : '') + '>下一页</button>';
+            container.innerHTML = html;
+        }
+
+        // ========== 数据分页跳转 ==========
+        function goDataPage(page) {
+            var totalPages = Math.ceil(dataTotal / dataPageSize);
+            if (page < 1 || page > totalPages) return;
+            dataPageNum = page;
+            loadDataList();
+        }
+
+        // ========== 打开新增向量库弹窗 ==========
+        function openAddStoreDialog() {
+            document.getElementById('storeModalTitle').textContent = '新增向量库';
+            document.getElementById('editStoreId').value = '';
+            document.getElementById('storeName').value = '';
+            document.getElementById('storeDescription').value = '';
+            document.getElementById('dimension').value = '1536';
+            document.getElementById('storeStatus').value = '0';
+            document.getElementById('storeStatusGroup').style.display = 'none';
+            $('#storeModal').modal('show');
+        }
+
+        // ========== 打开编辑向量库弹窗 ==========
+        function openEditStoreDialog(storeId) {
+            var store = null;
+            for (var i = 0; i < allStoreList.length; i++) {
+                if (allStoreList[i].storeId == storeId) {
+                    store = allStoreList[i];
+                    break;
+                }
+            }
+            if (!store) return;
+
+            document.getElementById('storeModalTitle').textContent = '编辑向量库';
+            document.getElementById('editStoreId').value = store.storeId;
+            document.getElementById('storeName').value = store.storeName || '';
+            document.getElementById('storeDescription').value = store.description || '';
+            document.getElementById('dimension').value = store.dimension || 1536;
+            document.getElementById('storeStatus').value = store.status || '0';
+            document.getElementById('storeStatusGroup').style.display = '';
+            $('#storeModal').modal('show');
+        }
+
+        // ========== 提交向量库表单 ==========
+        function submitStore() {
+            var storeName = document.getElementById('storeName').value.trim();
+            if (!storeName) {
+                layer.msg("请输入向量库名称", { icon: 5 });
+                return;
+            }
+
+            var editId = document.getElementById('editStoreId').value;
+            var data = {
+                storeName: storeName,
+                description: document.getElementById('storeDescription').value.trim(),
+                dimension: document.getElementById('dimension').value || 1536
+            };
+
+            if (editId) {
+                data.storeId = editId;
+                data.status = document.getElementById('storeStatus').value;
+                $.ajax({
+                    type: "POST",
+                    url: prefix + "/edit",
+                    data: data,
+                    success: function(result) {
+                        if (result.code === 0) {
+                            layer.msg("修改成功", { icon: 1 });
+                            $('#storeModal').modal('hide');
+                            loadStoreList();
+                            if (editId == currentStoreId) {
+                                loadStoreDetail(currentStoreId);
+                            }
+                        } else {
+                            layer.msg(result.msg || "修改失败", { icon: 5 });
+                        }
+                    },
+                    error: function() {
+                        layer.msg("修改请求失败", { icon: 5 });
+                    }
+                });
+            } else {
+                $.ajax({
+                    type: "POST",
+                    url: prefix + "/add",
+                    data: data,
+                    success: function(result) {
+                        if (result.code === 0) {
+                            layer.msg("新增成功", { icon: 1 });
+                            $('#storeModal').modal('hide');
+                            loadStoreList();
+                        } else {
+                            layer.msg(result.msg || "新增失败", { icon: 5 });
+                        }
+                    },
+                    error: function() {
+                        layer.msg("新增请求失败", { icon: 5 });
+                    }
+                });
+            }
+        }
+
+        // ========== 删除向量库 ==========
+        function deleteStore(storeId) {
+            layer.confirm('确认删除该向量库？删除后关联的向量数据也将一并删除，不可恢复。', { icon: 3, title: '提示' }, function(index) {
+                $.ajax({
+                    type: "POST",
+                    url: prefix + "/delete",
+                    data: { storeId: storeId },
+                    success: function(result) {
+                        if (result.code === 0) {
+                            layer.msg("删除成功", { icon: 1 });
+                            if (storeId == currentStoreId) {
+                                currentStoreId = null;
+                                document.getElementById('detailArea').innerHTML =
+                                    '<div class="store-welcome" id="storeWelcome">'
+                                    + '<h3><i class="fa fa-cubes"></i> 向量库管理</h3>'
+                                    + '<p>请选择左侧向量库查看详情，或点击新增创建向量库</p>'
+                                    + '<p style="font-size: 12px; color: #bbb; margin-top: 15px;">支持向量数据的增删改查、文本相似度检索等功能</p>'
+                                    + '</div>';
+                            }
+                            loadStoreList();
+                        } else {
+                            layer.msg(result.msg || "删除失败", { icon: 5 });
+                        }
+                    },
+                    error: function() {
+                        layer.msg("删除请求失败", { icon: 5 });
+                    }
+                });
+                layer.close(index);
+            });
+        }
+
+        // ========== 打开新增向量数据弹窗 ==========
+        function openAddDataDialog() {
+            document.getElementById('dataModalTitle').textContent = '新增向量数据';
+            document.getElementById('editDataId').value = '';
+            document.getElementById('dataStoreId').value = currentStoreId;
+            document.getElementById('dataContent').value = '';
+            document.getElementById('dataEmbedding').value = '';
+            document.getElementById('dataMetadata').value = '';
+            $('#dataModal').modal('show');
+        }
+
+        // ========== 打开编辑向量数据弹窗 ==========
+        function openEditDataDialog(dataId) {
+            $.ajax({
+                type: "GET",
+                url: prefix + "/data/detail",
+                data: { dataId: dataId },
+                success: function(result) {
+                    var data = result.data || result;
+                    if (!data) {
+                        layer.msg("获取数据详情失败", { icon: 5 });
+                        return;
+                    }
+                    document.getElementById('dataModalTitle').textContent = '编辑向量数据';
+                    document.getElementById('editDataId').value = data.dataId;
+                    document.getElementById('dataStoreId').value = data.storeId || currentStoreId;
+                    document.getElementById('dataContent').value = data.content || '';
+                    document.getElementById('dataEmbedding').value = data.embedding || '';
+                    document.getElementById('dataMetadata').value = data.metadata || '';
+                    $('#dataModal').modal('show');
+                },
+                error: function() {
+                    layer.msg("获取数据详情失败", { icon: 5 });
+                }
+            });
+        }
+
+        // ========== 提交向量数据表单 ==========
+        function submitData() {
+            var content = document.getElementById('dataContent').value.trim();
+            if (!content) {
+                layer.msg("请输入文本内容", { icon: 5 });
+                return;
+            }
+
+            var editId = document.getElementById('editDataId').value;
+            var data = {
+                storeId: currentStoreId,
+                content: content,
+                embedding: document.getElementById('dataEmbedding').value.trim(),
+                metadata: document.getElementById('dataMetadata').value.trim()
+            };
+
+            var url, msg;
+            if (editId) {
+                data.dataId = editId;
+                url = prefix + "/data/edit";
+                msg = "修改";
+            } else {
+                url = prefix + "/data/add";
+                msg = "新增";
+            }
+
+            $.ajax({
+                type: "POST",
+                url: url,
+                data: data,
+                success: function(result) {
+                    if (result.code === 0) {
+                        layer.msg(msg + "成功", { icon: 1 });
+                        $('#dataModal').modal('hide');
+                        loadDataList();
+                        loadStoreList();
+                    } else {
+                        layer.msg(result.msg || msg + "失败", { icon: 5 });
+                    }
+                },
+                error: function() {
+                    layer.msg(msg + "请求失败", { icon: 5 });
+                }
+            });
+        }
+
+        // ========== 删除向量数据 ==========
+        function deleteData(dataId) {
+            layer.confirm('确认删除该向量数据？删除后不可恢复。', { icon: 3, title: '提示' }, function(index) {
+                $.ajax({
+                    type: "POST",
+                    url: prefix + "/data/delete",
+                    data: { dataId: dataId },
+                    success: function(result) {
+                        if (result.code === 0) {
+                            layer.msg("删除成功", { icon: 1 });
+                            loadDataList();
+                            loadStoreList();
+                        } else {
+                            layer.msg(result.msg || "删除失败", { icon: 5 });
+                        }
+                    },
+                    error: function() {
+                        layer.msg("删除请求失败", { icon: 5 });
+                    }
+                });
+                layer.close(index);
+            });
+        }
+
+        // ========== 查看向量数据详情 ==========
+        function viewDataDetail(dataId) {
+            $.ajax({
+                type: "GET",
+                url: prefix + "/data/detail",
+                data: { dataId: dataId },
+                success: function(result) {
+                    var data = result.data || result;
+                    if (!data) {
+                        layer.msg("获取数据详情失败", { icon: 5 });
+                        return;
+                    }
+
+                    var html = '';
+                    html += '<div style="margin-bottom:15px;">';
+                    html += '<label style="font-weight:600; color:#666;">文本内容：</label>';
+                    html += '<div style="padding:10px; background:#fafafa; border:1px solid #e7eaec; border-radius:4px; white-space:pre-wrap; word-break:break-all;">' + escapeHtml(data.content || '无') + '</div>';
+                    html += '</div>';
+
+                    html += '<div style="margin-bottom:15px;">';
+                    html += '<label style="font-weight:600; color:#666;">向量数据：</label>';
+                    if (data.embedding) {
+                        var embedPreview = data.embedding.length > 500 ? data.embedding.substring(0, 500) + '...' : data.embedding;
+                        html += '<div style="padding:10px; background:#fafafa; border:1px solid #e7eaec; border-radius:4px; font-size:12px; max-height:150px; overflow-y:auto; word-break:break-all;">' + escapeHtml(embedPreview) + '</div>';
+                    } else {
+                        html += '<div style="color:#999;">未生成向量</div>';
+                    }
+                    html += '</div>';
+
+                    if (data.metadata) {
+                        html += '<div style="margin-bottom:15px;">';
+                        html += '<label style="font-weight:600; color:#666;">元数据：</label>';
+                        html += '<div style="padding:10px; background:#fafafa; border:1px solid #e7eaec; border-radius:4px; font-size:12px; word-break:break-all;">' + escapeHtml(data.metadata) + '</div>';
+                        html += '</div>';
+                    }
+
+                    html += '<div style="display:flex; gap:20px; color:#999; font-size:12px;">';
+                    html += '<span>数据ID: ' + (data.dataId || '-') + '</span>';
+                    html += '<span>状态: ' + (data.status === '0' ? '正常' : '停用') + '</span>';
+                    html += '<span>创建人: ' + (data.createBy || '-') + '</span>';
+                    html += '<span>创建时间: ' + (data.createTime || '-') + '</span>';
+                    html += '</div>';
+
+                    document.getElementById('dataDetailBody').innerHTML = html;
+                    $('#dataDetailModal').modal('show');
+                },
+                error: function() {
+                    layer.msg("获取数据详情失败", { icon: 5 });
+                }
+            });
+        }
+
+        // ========== 文本相似度检索 ==========
+        function searchByText() {
+            var query = document.getElementById('searchQuery').value.trim();
+            if (!query) {
+                layer.msg("请输入查询文本", { icon: 5 });
+                return;
+            }
+            var topK = parseInt(document.getElementById('searchTopK').value) || 5;
+
+            var loadIndex = layer.load(1);
+            $.ajax({
+                type: "GET",
+                url: prefix + "/searchByText",
+                data: { storeId: currentStoreId, query: query, topK: topK },
+                success: function(result) {
+                    layer.close(loadIndex);
+                    var results = result.data || [];
+                    renderSearchResults(results, query);
+                },
+                error: function() {
+                    layer.close(loadIndex);
+                    layer.msg("检索请求失败", { icon: 5 });
+                }
+            });
+        }
+
+        // ========== 渲染检索结果 ==========
+        function renderSearchResults(results, query) {
+            var container = document.getElementById('searchResults');
+            if (!container) return;
+
+            if (!results || results.length === 0) {
+                container.innerHTML = '<div style="text-align:center; color:#bbb; padding:15px;">未找到相似结果</div>';
+                return;
+            }
+
+            var html = '<div style="font-size:12px; color:#999; margin-bottom:8px;">查询"' + escapeHtml(query) + '"，找到 ' + results.length + ' 条相似结果</div>';
+            for (var i = 0; i < results.length; i++) {
+                var item = results[i];
+                var score = item.score ? (item.score * 100).toFixed(2) + '%' : '-';
+                html += '<div class="search-result-item">';
+                html += '<div class="result-content">' + escapeHtml(item.content || '无内容') + '</div>';
+                html += '<div class="result-meta">';
+                html += '<span><i class="fa fa-sort-amount-desc"></i> 相似度: ' + score + '</span>';
+                html += '<span>ID: ' + (item.dataId || '-') + '</span>';
+                if (item.metadata) {
+                    html += '<span><i class="fa fa-tag"></i> ' + escapeHtml(item.metadata.length > 40 ? item.metadata.substring(0, 40) + '...' : item.metadata) + '</span>';
+                }
+                html += '</div>';
+                html += '</div>';
+            }
+            container.innerHTML = html;
+        }
+
+        // ========== 加载向量库内存统计 ==========
+        function loadStoreStats(storeId) {
+            $.ajax({
+                type: "GET",
+                url: prefix + "/stats",
+                data: { storeId: storeId },
+                success: function(result) {
+                    if (result.code === 0) {
+                        var info = '';
+                        info += '向量库名称：' + escapeHtml(result.storeName || '-') + '\n';
+                        info += '向量维度：' + (result.dimension || '-') + '\n';
+                        info += '内存中向量数：' + (result.vectorCount || 0);
+                        layer.alert(info.replace(/\n/g, '<br>'), { title: '内存统计信息', icon: 1 });
+                    } else {
+                        layer.msg(result.msg || "获取统计信息失败", { icon: 5 });
+                    }
+                },
+                error: function() {
+                    layer.msg("获取统计信息失败", { icon: 5 });
+                }
+            });
+        }
+
+        // ========== HTML转义 ==========
+        function escapeHtml(text) {
+            var map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return String(text || '').replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+    </script>
+</body>
+</html>

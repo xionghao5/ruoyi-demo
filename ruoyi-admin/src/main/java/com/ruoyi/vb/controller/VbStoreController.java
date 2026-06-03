@@ -29,8 +29,20 @@ import com.ruoyi.ai.service.AiEmbeddingService;
 @RequestMapping("/vb/store")
 public class VbStoreController extends BaseController
 {
+    private String prefix = "vb";
+
     @Autowired
     private IVbStoreService storeService;
+
+    /**
+     * 向量库管理页面
+     */
+    @RequiresPermissions("vb:store:view")
+    @GetMapping()
+    public String store()
+    {
+        return prefix + "/store";
+    }
 
     @Autowired
     private IVbVectorDataService vectorDataService;
