@@ -25,6 +25,9 @@ public class AiKnowledge extends BaseEntity
     /** 创建用户ID */
     private Long userId;
 
+    /** 关联的向量库ID */
+    private Long storeId;
+
     /** 文件数量 */
     private Integer fileCount;
 
@@ -74,6 +77,16 @@ public class AiKnowledge extends BaseEntity
         this.userId = userId;
     }
 
+    public Long getStoreId()
+    {
+        return storeId;
+    }
+
+    public void setStoreId(Long storeId)
+    {
+        this.storeId = storeId;
+    }
+
     public Integer getFileCount()
     {
         return fileCount;
@@ -111,6 +124,7 @@ public class AiKnowledge extends BaseEntity
             .append("knowledgeName", getKnowledgeName())
             .append("description", getDescription())
             .append("userId", getUserId())
+            .append("storeId", getStoreId())
             .append("fileCount", getFileCount())
             .append("status", getStatus())
             .append("delFlag", getDelFlag())

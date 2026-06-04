@@ -9,6 +9,12 @@ import com.ruoyi.ai.mapper.AiKnowledgeChunkMapper;
 import com.ruoyi.ai.mapper.AiKnowledgeMapper;
 import com.ruoyi.ai.mapper.AiKnowledgeFileMapper;
 import com.ruoyi.ai.service.IAiKnowledgeService;
+import com.ruoyi.vb.domain.VbStore;
+import com.ruoyi.vb.domain.VbVectorData;
+import com.ruoyi.vb.mapper.VbStoreMapper;
+import com.ruoyi.vb.mapper.VbVectorDataMapper;
+import com.ruoyi.vb.service.IVbStoreService;
+import com.ruoyi.vb.service.VectorDbService;
 import com.ruoyi.common.core.text.Convert;
 
 /**
@@ -28,6 +34,15 @@ public class AiKnowledgeServiceImpl implements IAiKnowledgeService
     @Autowired
     private AiKnowledgeChunkMapper chunkMapper;
 
+    @Autowired
+    private IVbStoreService vbStoreService;
+
+    @Autowired
+    private VbVectorDataMapper vbVectorDataMapper;
+
+    @Autowired
+    private VectorDbService vectorDbService;
+
     @Override
     public AiKnowledge selectKnowledgeById(Long knowledgeId)
     {
@@ -43,7 +58,24 @@ public class AiKnowledgeServiceImpl implements IAiKnowledgeService
     @Override
     public int insertKnowledge(AiKnowledge knowledge)
     {
-        return knowledgeMapper.insertKnowledge(knowledge);
+        int rows = knowledgeMapper.insertKnowledge(knowledge);
+        if (rows > 0)
+        {
+            // 同步创建关联的向量库
+            VbStore store = new VbStore();
+            store.setStoreName(knowledge.getKnowledgeName());
+            store.setDescription("知识库[" + knowledge.getKnowledgeName() + "]关联向量库");
+            store.setDimension(1024);
+            store.setVectorCount(0);
+            store.setStatus("0");
+            store.setCreateBy(knowledge.getCreateBy());
+            vbStoreService.insertStore(store);
+
+            // 将向量库ID回填到知识库
+            knowledge.setStoreId(store.getStoreId());
+            knowledgeMapper.updateKnowledge(knowledge);
+        }
+        return rows;
     }
 
     @Override
@@ -55,10 +87,21 @@ public class AiKnowledgeServiceImpl implements IAiKnowledgeService
     @Override
     public int deleteKnowledgeById(Long knowledgeId)
     {
+        // 查询知识库获取关联的向量库ID
+        AiKnowledge knowledge = knowledgeMapper.selectKnowledgeById(knowledgeId);
+
         // 级联删除分块和文件
         chunkMapper.deleteChunksByKnowledgeId(knowledgeId);
         knowledgeFileMapper.deleteFileByKnowledgeId(knowledgeId);
-        return knowledgeMapper.deleteKnowledgeById(knowledgeId);
+        int rows = knowledgeMapper.deleteKnowledgeById(knowledgeId);
+
+        // 同步删除关联的向量库及向量数据
+        if (knowledge != null && knowledge.getStoreId() != null)
+        {
+            vbStoreService.deleteStoreById(knowledge.getStoreId());
+        }
+
+        return rows;
     }
 
     @Override
@@ -67,8 +110,17 @@ public class AiKnowledgeServiceImpl implements IAiKnowledgeService
         String[] knowledgeIds = Convert.toStrArray(ids);
         for (String knowledgeId : knowledgeIds)
         {
+            // 查询知识库获取关联的向量库ID
+            AiKnowledge knowledge = knowledgeMapper.selectKnowledgeById(Long.valueOf(knowledgeId));
+
             chunkMapper.deleteChunksByKnowledgeId(Long.valueOf(knowledgeId));
             knowledgeFileMapper.deleteFileByKnowledgeId(Long.valueOf(knowledgeId));
+
+            // 同步删除关联的向量库及向量数据
+            if (knowledge != null && knowledge.getStoreId() != null)
+            {
+                vbStoreService.deleteStoreById(knowledge.getStoreId());
+            }
         }
         return knowledgeMapper.deleteKnowledgeByIds(knowledgeIds);
     }

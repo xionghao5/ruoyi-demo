@@ -10,6 +10,8 @@ import com.ruoyi.ai.domain.AiKnowledgeChunk;
 import com.ruoyi.ai.service.AiEmbeddingService;
 import com.ruoyi.ai.service.IAiKnowledgeChunkService;
 import com.ruoyi.common.utils.file.FileReaderUtils;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.slf4j.Logger;
@@ -32,6 +34,9 @@ import com.ruoyi.ai.domain.AiKnowledge;
 import com.ruoyi.ai.domain.AiKnowledgeFile;
 import com.ruoyi.ai.service.IAiKnowledgeService;
 import com.ruoyi.ai.service.IAiKnowledgeFileService;
+import com.ruoyi.vb.domain.VbVectorData;
+import com.ruoyi.vb.service.IVbVectorDataService;
+import com.ruoyi.vb.service.VectorDbService;
 import com.ruoyi.common.core.domain.entity.SysUser;
 
 /**
@@ -60,6 +65,12 @@ public class AiKnowledgeController extends BaseController
 
     @Autowired
     private AiEmbeddingService embeddingService;
+
+    @Autowired
+    private IVbVectorDataService vbVectorDataService;
+
+    @Autowired
+    private VectorDbService vectorDbService;
 
     @RequiresPermissions("ai:knowledge:view")
     @GetMapping()
@@ -237,6 +248,40 @@ public class AiKnowledgeController extends BaseController
                     {
                         knowledgeChunkService.batchInsertChunks(chunkList);
                     }
+
+                    // 同步写入向量库（vb_vector_data）
+                    AiKnowledge knowledgeObj = knowledgeService.selectKnowledgeById(knowledgeId);
+                    if (knowledgeObj != null && knowledgeObj.getStoreId() != null)
+                    {
+                        Long storeId = knowledgeObj.getStoreId();
+                        for (AiKnowledgeChunk ck : chunkList)
+                        {
+                            if (ck.getEmbedding() != null && !ck.getEmbedding().isEmpty())
+                            {
+                                try
+                                {
+                                    VbVectorData vectorData = new VbVectorData();
+                                    vectorData.setStoreId(storeId);
+                                    vectorData.setContent(ck.getContent());
+                                    vectorData.setEmbedding(ck.getEmbedding());
+                                    // 元数据中记录来源知识库和文件信息
+                                    JSONObject meta = new JSONObject();
+                                    meta.put("knowledgeId", knowledgeId);
+                                    meta.put("fileId", knowledgeFile.getFileId());
+                                    meta.put("chunkId", ck.getChunkId());
+                                    meta.put("fileName", originalFilename);
+                                    vectorData.setMetadata(meta.toJSONString());
+                                    vectorData.setStatus("0");
+                                    vectorData.setCreateBy(ShiroUtils.getLoginName());
+                                    vbVectorDataService.insertData(vectorData);
+                                }
+                                catch (Exception ex)
+                                {
+                                    log.error("chunk写入向量库失败, chunkId={}", ck.getChunkId(), ex);
+                                }
+                            }
+                        }
+                    }
                 }
             }
             catch (Exception e)
@@ -266,6 +311,32 @@ public class AiKnowledgeController extends BaseController
     public AjaxResult deleteFile(@RequestParam("fileId") Long fileId,
                                  @RequestParam("knowledgeId") Long knowledgeId)
     {
+        // 同步删除向量库中该文件关联的向量数据
+        AiKnowledge knowledgeObj = knowledgeService.selectKnowledgeById(knowledgeId);
+        if (knowledgeObj != null && knowledgeObj.getStoreId() != null)
+        {
+            Long storeId = knowledgeObj.getStoreId();
+            List<VbVectorData> dataList = vbVectorDataService.selectDataByStoreId(storeId);
+            for (VbVectorData data : dataList)
+            {
+                if (data.getMetadata() != null)
+                {
+                    try
+                    {
+                        JSONObject meta = JSON.parseObject(data.getMetadata());
+                        if (meta.containsKey("fileId") && fileId.equals(meta.getLong("fileId")))
+                        {
+                            vbVectorDataService.deleteDataById(data.getDataId());
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        log.warn("解析向量数据元数据失败, dataId={}", data.getDataId(), ex);
+                    }
+                }
+            }
+        }
+
         // 级联删除文件分块
         knowledgeChunkService.deleteChunksByFileId(fileId);
         knowledgeFileService.deleteFileById(fileId);
