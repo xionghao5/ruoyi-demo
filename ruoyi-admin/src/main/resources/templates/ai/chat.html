@@ -186,6 +186,17 @@
             height: 60px;
             font-size: 14px;
         }
+        .chat-input-area .knowledge-select {
+            margin-left: 10px;
+            height: 60px;
+            min-width: 160px;
+            border: 1px solid #e7eaec;
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-size: 13px;
+            color: #555;
+            background-color: #fff;
+        }
         .chat-input-area .btn-send {
             margin-left: 10px;
             height: 60px;
@@ -256,6 +267,9 @@
                                 </div>
                                 <div class="chat-input-area">
                                     <textarea id="messageInput" placeholder="请输入您的问题，按Enter发送，Shift+Enter换行..."></textarea>
+                                    <select id="knowledgeSelect" class="knowledge-select" title="选择知识库">
+                                        <option value="">不使用知识库</option>
+                                    </select>
                                     <button type="button" class="btn btn-primary btn-send" id="sendBtn" onclick="sendMessage()">
                                         <i class="fa fa-paper-plane"></i> 发送
                                     </button>
@@ -273,6 +287,7 @@
     <script th:src="@{/ajax/libs/highlight/highlight.min.js}"></script>
     <script th:inline="javascript">
         var prefix = ctx + "ai/chat";
+        var knowledgePrefix = ctx + "ai/knowledge";
 
         // 当前对话ID（null表示新对话）
         var currentConversationId = null;
@@ -286,9 +301,10 @@
             });
         }
 
-        // ========== 页面加载时获取对话列表 ==========
+        // ========== 页面加载时获取对话列表和知识库列表 ==========
         $(document).ready(function() {
             loadConversationList();
+            loadKnowledgeList();
         });
 
         // ========== 加载对话列表 ==========
@@ -303,6 +319,28 @@
                 },
                 error: function() {
                     layer.msg("加载对话列表失败", { icon: 5 });
+                }
+            });
+        }
+
+        // ========== 加载知识库列表 ==========
+        function loadKnowledgeList() {
+            $.ajax({
+                type: "GET",
+                url: knowledgePrefix + "/all",
+                success: function(result) {
+                    var list = result.data || [];
+                    var select = document.getElementById('knowledgeSelect');
+                    // 清除旧选项（保留第一个默认选项）
+                    select.options.length = 1;
+                    for (var i = 0; i < list.length; i++) {
+                        var kb = list[i];
+                        var option = new Option(kb.knowledgeName, kb.knowledgeId);
+                        select.add(option);
+                    }
+                },
+                error: function() {
+                    // 静默失败，不影响主要功能
                 }
             });
         }
@@ -461,6 +499,11 @@
             params.append('message', message);
             if (currentConversationId) {
                 params.append('conversationId', currentConversationId);
+            }
+            // 添加知识库ID
+            var knowledgeId = document.getElementById('knowledgeSelect').value;
+            if (knowledgeId) {
+                params.append('knowledgeId', knowledgeId);
             }
 
             fetch(prefix + '/send', {

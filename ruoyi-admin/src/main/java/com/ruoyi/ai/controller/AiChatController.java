@@ -58,7 +58,8 @@ public class AiChatController extends BaseController
     @PostMapping(value = "/send", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @ResponseBody
     public SseEmitter send(@RequestParam("message") String message,
-                           @RequestParam(value = "conversationId", required = false) Long conversationId)
+                           @RequestParam(value = "conversationId", required = false) Long conversationId,
+                           @RequestParam(value = "knowledgeId", required = false) Long knowledgeId)
     {
         if (message == null || message.trim().isEmpty())
         {
@@ -74,7 +75,7 @@ public class AiChatController extends BaseController
             }
             return emitter;
         }
-        return aiChatService.streamChat(message.trim(), conversationId);
+        return aiChatService.streamChat(message.trim(), conversationId, knowledgeId);
     }
 
     /**

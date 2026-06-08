@@ -31,11 +31,16 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.ai.service.AiChatService;
+import com.ruoyi.ai.service.AiEmbeddingService;
 import com.ruoyi.ai.service.IAiConversationService;
+import com.ruoyi.ai.service.IAiKnowledgeService;
 import com.ruoyi.ai.service.IAiMessageService;
 import com.ruoyi.ai.domain.AiConversation;
+import com.ruoyi.ai.domain.AiKnowledge;
 import com.ruoyi.ai.domain.AiMessage;
 import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.vb.domain.VbVectorData;
+import com.ruoyi.vb.service.VectorDbService;
 
 /**
  * AI智能问答服务实现类
@@ -67,6 +72,15 @@ public class AiChatServiceImpl implements AiChatService
 
     @Autowired
     private IAiMessageService messageService;
+
+    @Autowired
+    private IAiKnowledgeService knowledgeService;
+
+    @Autowired
+    private AiEmbeddingService embeddingService;
+
+    @Autowired
+    private VectorDbService vectorDbService;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -126,7 +140,7 @@ public class AiChatServiceImpl implements AiChatService
     }
 
     @Override
-    public SseEmitter streamChat(String message, Long conversationId)
+    public SseEmitter streamChat(String message, Long conversationId, Long knowledgeId)
     {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
 
@@ -203,6 +217,17 @@ public class AiChatServiceImpl implements AiChatService
                 requestBody.put("stream", true);
 
                 List<Map<String, String>> messages = new ArrayList<>();
+
+                // 如果指定了知识库，检索相关知识并注入system消息
+                String knowledgeContext = retrieveKnowledgeContext(message, knowledgeId);
+                if (knowledgeContext != null && !knowledgeContext.isEmpty())
+                {
+                    Map<String, String> systemMessage = new HashMap<>();
+                    systemMessage.put("role", "system");
+                    systemMessage.put("content", "请根据以下知识库内容回答用户的问题。如果知识库内容中没有相关信息，请根据你的知识进行回答，但要说明知识库中未找到相关内容。\n\n【知识库内容】\n" + knowledgeContext);
+                    messages.add(systemMessage);
+                }
+
                 Map<String, String> userMessage = new HashMap<>();
                 userMessage.put("role", "user");
                 userMessage.put("content", message);
@@ -327,5 +352,64 @@ public class AiChatServiceImpl implements AiChatService
         emitter.onError(e -> log.error("SSE连接异常", e));
 
         return emitter;
+    }
+
+    /**
+     * 根据知识库ID检索与问题相关的知识内容（RAG）
+     * 
+     * @param question 用户问题
+     * @param knowledgeId 知识库ID
+     * @return 拼接后的知识库上下文文本
+     */
+    private String retrieveKnowledgeContext(String question, Long knowledgeId)
+    {
+        if (knowledgeId == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            AiKnowledge knowledge = knowledgeService.selectKnowledgeById(knowledgeId);
+            if (knowledge == null || knowledge.getStoreId() == null)
+            {
+                log.warn("知识库不存在或未关联向量库: knowledgeId={}", knowledgeId);
+                return null;
+            }
+
+            Long storeId = knowledge.getStoreId();
+
+            // 获取问题的嵌入向量
+            String queryEmbedding = embeddingService.getEmbedding(question);
+            if (queryEmbedding == null || queryEmbedding.isEmpty())
+            {
+                log.warn("获取问题嵌入向量失败，回退到全量知识内容");
+                return knowledgeService.getKnowledgeContent(knowledgeId);
+            }
+
+            // 通过向量相似度检索top5相关内容
+            List<VbVectorData> results = vectorDbService.searchByVector(storeId, queryEmbedding, 5);
+            if (results == null || results.isEmpty())
+            {
+                log.info("向量检索未找到相关内容，回退到全量知识内容, knowledgeId={}", knowledgeId);
+                return knowledgeService.getKnowledgeContent(knowledgeId);
+            }
+
+            StringBuilder context = new StringBuilder();
+            for (VbVectorData data : results)
+            {
+                if (data.getContent() != null && !data.getContent().isEmpty())
+                {
+                    context.append(data.getContent()).append("\n\n");
+                }
+            }
+
+            return context.toString().trim();
+        }
+        catch (Exception e)
+        {
+            log.error("检索知识库上下文异常, knowledgeId={}", knowledgeId, e);
+            return null;
+        }
     }
 }
