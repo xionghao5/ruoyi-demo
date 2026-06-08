@@ -41,6 +41,7 @@ import com.ruoyi.ai.domain.AiMessage;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.vb.domain.VbVectorData;
 import com.ruoyi.vb.service.VectorDbService;
+import org.apache.shiro.util.ThreadContext;
 
 /**
  * AI智能问答服务实现类
@@ -195,7 +196,12 @@ public class AiChatServiceImpl implements AiChatService
             conversationService.updateConversation(conv);
         }
 
+        // 获取 SecurityManager 用于在异步线程中手动绑定，避免 Shiro ThreadContext 丢失
+        org.apache.shiro.mgt.SecurityManager securityManager = org.apache.shiro.SecurityUtils.getSecurityManager();
+
         executorService.execute(() -> {
+            // 绑定 SecurityManager 到当前异步线程
+            ThreadContext.bind(securityManager);
             HttpURLConnection connection = null;
             BufferedReader reader = null;
             try
@@ -344,6 +350,8 @@ public class AiChatServiceImpl implements AiChatService
                 {
                     connection.disconnect();
                 }
+                // 清理当前线程的 SecurityManager 绑定，防止线程复用时污染
+                ThreadContext.unbindSecurityManager();
             }
         });
 
