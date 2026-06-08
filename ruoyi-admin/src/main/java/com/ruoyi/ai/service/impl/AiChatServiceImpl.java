@@ -10,13 +10,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import com.ruoyi.common.core.domain.entity.SysUser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -56,8 +56,9 @@ public class AiChatServiceImpl implements AiChatService
     /** SSE超时时间（5分钟） */
     private static final long SSE_TIMEOUT = 5 * 60 * 1000L;
 
-    /** 异步线程池，用于流式传输 */
-    private final ExecutorService executorService = Executors.newCachedThreadPool();
+    @Autowired
+    @Qualifier("threadPoolTaskExecutor")
+    private ThreadPoolTaskExecutor threadPoolTaskExecutor;
 
     @Value("${ai.api-key:}")
     private String apiKey;
@@ -199,7 +200,7 @@ public class AiChatServiceImpl implements AiChatService
         // 获取 SecurityManager 用于在异步线程中手动绑定，避免 Shiro ThreadContext 丢失
         org.apache.shiro.mgt.SecurityManager securityManager = org.apache.shiro.SecurityUtils.getSecurityManager();
 
-        executorService.execute(() -> {
+        threadPoolTaskExecutor.execute(() -> {
             // 绑定 SecurityManager 到当前异步线程
             ThreadContext.bind(securityManager);
             HttpURLConnection connection = null;
